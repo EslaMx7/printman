@@ -118,6 +118,8 @@ USAGE:
   ohmyprinter <command> [arguments]
 
 COMMANDS:
+  serve, server                 Start mobile-friendly local LAN web printing server
+                                Options: --port <n> (default: 5000), --ip <addr>
   list, -list, --list           List all installed printers and their status
   info <printer-name>           Show details & supported paper sizes for a printer
   interactive, -i               Launch the interactive printing wizard

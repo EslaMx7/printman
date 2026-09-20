@@ -18,3 +18,4 @@ $RECYCLE.BIN/
 # Test output prints
 *.xps
 *.pdf.tmp
+[Cc]ache/

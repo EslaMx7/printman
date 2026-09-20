@@ -17,6 +17,8 @@ public class ParsedArguments
     public bool FitToPage { get; set; } = true;
     public string? OutputFilePath { get; set; }
     public string? QueryTarget { get; set; } // For "info <printer>" command
+    public int ServerPort { get; set; } = 5000;
+    public string BindAddress { get; set; } = "0.0.0.0";
 
     public PrintJobRequest ToPrintJobRequest()
     {

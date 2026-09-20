@@ -6,10 +6,12 @@ namespace OhMyPrinter.CLI;
 
 public class CliHandler(
     IPrinterDiscoveryService printerDiscovery,
-    IPrintService printService)
+    IPrintService printService,
+    Server.PrintingWebServerHost webServer)
 {
     private readonly IPrinterDiscoveryService _printerDiscovery = printerDiscovery;
     private readonly IPrintService _printService = printService;
+    private readonly Server.PrintingWebServerHost _webServer = webServer;
 
     public async Task<int> ExecuteAsync(ParsedArguments parsedArgs)
     {
@@ -24,6 +26,9 @@ public class CliHandler(
 
             case CliCommandType.PrinterInfo:
                 return HandlePrinterInfo(parsedArgs.QueryTarget);
+
+            case CliCommandType.Server:
+                return await _webServer.RunAsync(parsedArgs.ServerPort, parsedArgs.BindAddress);
 
             case CliCommandType.Print:
                 return await HandlePrintAsync(parsedArgs.ToPrintJobRequest());

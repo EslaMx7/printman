@@ -28,5 +28,6 @@ public enum CliCommandType
     ListPrinters,
     PrinterInfo,
     Help,
-    Interactive
+    Interactive,
+    Server
 }

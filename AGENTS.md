@@ -71,19 +71,25 @@ OhMyPrinter/
 
 ---
 
-## 4. Stage 2 Roadmap: LAN Web Server Architecture
+## 4. Web Server Architecture (`server` / `serve`)
 
-When instructed to implement the **Web Server** functionality:
-1. **Do NOT modify `Core/` or `Services/` printing logic.**
-2. Expose an embedded ASP.NET Core Minimal API / Kestrel server (enabled via `<FrameworkReference Include="Microsoft.AspNetCore.App" />`).
-3. Add a CLI command: `ohmyprinter server --port 5000`.
-4. The web server should:
-   - Provide a mobile-friendly responsive web page (HTML/JS) allowing users on the same Wi-Fi/LAN to select a file, choose printer, page range, and print.
-   - Provide REST API endpoints:
-     - `GET /api/printers` -> returns `_printerDiscovery.GetPrinters()` as JSON.
-     - `GET /api/printers/{name}` -> returns printer details.
-     - `POST /api/print` -> accepts multipart form upload, binds parameters into `PrintJobRequest`, and invokes `await _printService.PrintAsync(request)`.
-5. Keep the web server lightweight with zero external frontend or backend packages.
+The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestrel (enabled via `<FrameworkReference Include="Microsoft.AspNetCore.App" />`):
+1. **Command:** `ohmyprinter server --port 5000` (or `serve`, alias `--ip 0.0.0.0`).
+2. **Features:**
+   - Detects local LAN IPv4 network interfaces and displays mobile-accessible URLs (e.g. `http://192.168.1.X:5000`).
+   - Mobile-first responsive web SPA in `Server/WebAssets.cs` (drag-and-drop, multi-file queue, printer picker, paper size filter, copies, duplex, and color options).
+   - **Fast Hash File Cache (`IFileCacheService` / `FileCacheService`):**
+     - Uploads are SHA-256 hashed and cached in `cache/{hash}{ext}` next to the executable.
+     - Automatically deduplicates existing files to avoid redundant writes.
+   - **Real-Time Streaming via SSE (`IPrintEventHub` / `PrintEventHub`):**
+     - Real-time updates delivered to web clients via Server-Sent Events (`GET /api/events`) over HTTP without WebSockets.
+   - **REST API Endpoints:**
+     - `GET /` -> Mobile SPA web page.
+     - `GET /api/printers` -> JSON list of installed printers.
+     - `GET /api/printers/{name}` -> JSON details of a specific printer.
+     - `POST /api/upload` -> Multipart file upload with fast hash deduplication & page count discovery.
+     - `POST /api/print` -> Submits batch print request; processes files sequentially while streaming live progress.
+     - `GET /api/events` -> SSE event stream (`text/event-stream`).
 
 ---
 

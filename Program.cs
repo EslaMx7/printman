@@ -72,6 +72,11 @@ public static class Program
         services.AddTransient<IPrintJobValidator, PrintJobValidator>();
         services.AddTransient<IPrintService, WindowsPrintService>();
 
+        // Web Server, fast cache, and SSE services
+        services.AddSingleton<IFileCacheService, FileCacheService>();
+        services.AddSingleton<IPrintEventHub, PrintEventHub>();
+        services.AddSingleton<Server.PrintingWebServerHost>();
+
         // Presentation & execution layers
         services.AddTransient<CliHandler>();
         services.AddTransient<InteractiveWizard>();

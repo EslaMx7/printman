@@ -50,6 +50,50 @@ public static class CommandLineParser
             return result;
         }
 
+        if (firstArg.Equals("server", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("serve", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("--server", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("--serve", StringComparison.OrdinalIgnoreCase))
+        {
+            result.Command = CliCommandType.Server;
+            for (int j = 1; j < args.Length; j++)
+            {
+                var serverArg = args[j].Trim();
+                string key = serverArg;
+                string? value = null;
+                int eq = serverArg.IndexOf('=');
+                if (eq > 0)
+                {
+                    key = serverArg[..eq];
+                    value = serverArg[(eq + 1)..].Trim('"', '\'');
+                }
+
+                switch (key.ToLowerInvariant())
+                {
+                    case "--port" or "-port" or "-p":
+                        var portVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
+                        if (int.TryParse(portVal, out int p) && p > 0 && p <= 65535)
+                        {
+                            result.ServerPort = p;
+                        }
+                        else
+                        {
+                            throw new FormatException($"Invalid port number: '{portVal}'. Must be an integer between 1 and 65535.");
+                        }
+                        break;
+
+                    case "--ip" or "-ip" or "--bind" or "-bind":
+                        var ipVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
+                        if (!string.IsNullOrWhiteSpace(ipVal))
+                        {
+                            result.BindAddress = ipVal;
+                        }
+                        break;
+                }
+            }
+            return result;
+        }
+
         // Otherwise, assume it's a Print command with flags and/or a file path
         result.Command = CliCommandType.Print;
 

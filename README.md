@@ -55,7 +55,29 @@ ohmyprinter.exe info "HP LaserJet"
 ohmyprinter.exe help
 ```
 
-### 3. Interactive Wizard
+### 3. Mobile LAN Web Server (`serve` / `server`)
+
+Spin up a local web server to print from your smartphone or other devices on the same Wi-Fi:
+
+```powershell
+# Start server on default port 5000
+ohmyprinter.exe serve
+
+# Start server on custom port
+ohmyprinter.exe server --port 8080
+```
+
+The console will display accessible URLs:
+```
+  Access from this machine or your phone on the same Wi-Fi:
+    Local:    http://localhost:5000
+    Network:  http://192.168.1.50:5000
+```
+- **Mobile-friendly UI:** Drag & drop documents, multi-file queue, printer picker, paper size filter, copies, duplex, and color mode.
+- **Fast File Deduplication:** Uploads are hashed (SHA-256) into a local `cache/` directory next to the executable; duplicate files are instantly detected and reused without redundant disk writes.
+- **Live Real-Time Feedback:** Server-Sent Events (SSE) stream progress and spooling status directly to your phone without WebSockets.
+
+### 4. Interactive Wizard
 
 Run without arguments (or with `interactive`):
 ```powershell
