@@ -6,11 +6,13 @@ namespace OhMyPrinter.Interactive;
 public class InteractiveWizard(
     IPrinterDiscoveryService printerDiscovery,
     IPrintService printService,
-    IDocumentRendererResolver rendererResolver)
+    IDocumentRendererResolver rendererResolver,
+    Server.PrintingWebServerHost webServer)
 {
     private readonly IPrinterDiscoveryService _printerDiscovery = printerDiscovery;
     private readonly IPrintService _printService = printService;
     private readonly IDocumentRendererResolver _rendererResolver = rendererResolver;
+    private readonly Server.PrintingWebServerHost _webServer = webServer;
 
     public async Task RunAsync()
     {
@@ -25,8 +27,9 @@ public class InteractiveWizard(
             Console.WriteLine("  [1] Print a Document (PDF, Image, Text)");
             Console.WriteLine("  [2] List Installed Printers");
             Console.WriteLine("  [3] Inspect Printer Details");
-            Console.WriteLine("  [4] Exit");
-            Console.Write("\nSelect an option [1-4] (default 1): ");
+            Console.WriteLine("  [4] Start Mobile LAN Web Server");
+            Console.WriteLine("  [5] Exit");
+            Console.Write("\nSelect an option [1-5] (default 1): ");
 
             var input = Console.ReadLine()?.Trim();
             if (string.IsNullOrEmpty(input)) input = "1";
@@ -42,13 +45,56 @@ public class InteractiveWizard(
                 case "3":
                     ShowPrinterDetails();
                     break;
-                case "4" or "q" or "exit":
+                case "4":
+                    await StartWebServerAsync();
+                    break;
+                case "5" or "q" or "exit":
                     Console.WriteLine("Goodbye!");
                     return;
                 default:
-                    ConsoleUi.PrintWarning("Invalid option. Please enter 1, 2, 3, or 4.");
+                    ConsoleUi.PrintWarning("Invalid option. Please enter 1, 2, 3, 4, or 5.");
                     break;
             }
+        }
+    }
+
+    private async Task StartWebServerAsync()
+    {
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("--- Mobile LAN Web Server ---");
+        Console.ResetColor();
+
+        int port = 5000;
+        Console.Write("Enter server port (Enter for default 5000): ");
+        var portInput = Console.ReadLine()?.Trim();
+        if (!string.IsNullOrEmpty(portInput))
+        {
+            if (int.TryParse(portInput, out int p) && p > 0 && p <= 65535)
+            {
+                port = p;
+            }
+            else
+            {
+                ConsoleUi.PrintWarning("Invalid port number. Falling back to port 5000.");
+            }
+        }
+
+        using var cts = new CancellationTokenSource();
+        ConsoleCancelEventHandler cancelHandler = (s, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+        };
+        Console.CancelKeyPress += cancelHandler;
+
+        try
+        {
+            await _webServer.RunAsync(port, "0.0.0.0", cts.Token);
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelHandler;
         }
     }
 
