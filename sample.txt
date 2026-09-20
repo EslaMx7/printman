@@ -1,0 +1,15 @@
+======================================================
+         OH-MY-PRINTER TEST DOCUMENT
+======================================================
+Date: 2026-09-20
+Target: Universal Windows Printing Engine
+
+Testing:
+- TextDocumentRenderer with pagination
+- SOLID principles architecture
+- CLI & Interactive interface
+
+Line 1: Hello from ohmyprinter!
+Line 2: Built natively with .NET 10 & Windows WinRT APIs.
+Line 3: Zero external NuGet packages.
+======================================================
