@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace OhMyPrinter.Core.Models;
+namespace Printman.Core.Models;
 
 public record FileCacheResult(
     string FileId,
@@ -92,4 +92,10 @@ public class PrintEvent
 
     [JsonPropertyName("timestamp")]
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
+}
+
+public class PinVerifyRequest
+{
+    [JsonPropertyName("pin")]
+    public string? Pin { get; init; }
 }

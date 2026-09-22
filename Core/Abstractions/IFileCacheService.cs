@@ -1,6 +1,6 @@
-using OhMyPrinter.Core.Models;
+﻿using Printman.Core.Models;
 
-namespace OhMyPrinter.Core.Abstractions;
+namespace Printman.Core.Abstractions;
 
 public interface IFileCacheService
 {
@@ -19,4 +19,19 @@ public interface IFileCacheService
     /// Path to the local cache directory.
     /// </summary>
     string CacheDirectory { get; }
+
+    /// <summary>
+    /// Maximum allowed single file size in bytes (default 50 MB).
+    /// </summary>
+    long MaxFileSizeBytes { get; set; }
+
+    /// <summary>
+    /// Maximum allowed total cache size in bytes (default 500 MB).
+    /// </summary>
+    long MaxCacheSizeBytes { get; set; }
+
+    /// <summary>
+    /// Cleans up old cached files if the total cache exceeds the maximum allowed size.
+    /// </summary>
+    Task CleanupOldFilesAsync(CancellationToken ct = default);
 }

@@ -1,6 +1,6 @@
-using OhMyPrinter.Core.Abstractions;
+﻿using Printman.Core.Abstractions;
 
-namespace OhMyPrinter.Services;
+namespace Printman.Services;
 
 public class DocumentRendererResolver(IEnumerable<IDocumentRenderer> renderers) : IDocumentRendererResolver
 {

@@ -6,11 +6,10 @@ This document provides context, architectural constraints, and operational instr
 
 ## 1. Project Overview
 
-**Oh-My-Printer** is a zero-dependency, high-performance Windows CLI and interactive printing tool built on modern .NET (`net10.0-windows10.0.19041.0`) with native Windows WinRT integration.
+**Printman** is a zero-dependency, high-performance Windows CLI and mobile LAN printing platform built on modern .NET (`net10.0-windows10.0.19041.0`) with native Windows WinRT integration.
 
-- **Primary Binary:** `ohmyprinter.exe`
-- **Current State:** Stage 1 complete (CLI commands, interactive wizard, PDF/Image/Text rendering, printer discovery and fuzzy matching).
-- **Upcoming Milestone:** Stage 2 (Remote LAN Web Server for mobile and network printing).
+- **Primary Binary:** `printman.exe`
+- **Current State:** CLI commands, interactive wizard, PDF/Image/Text rendering, printer discovery and fuzzy matching, plus embedded mobile LAN web server (`serve`).
 
 ---
 
@@ -25,37 +24,45 @@ This document provides context, architectural constraints, and operational instr
    - **Open/Closed (OCP):** New document formats must be added by implementing `IDocumentRenderer` and registering in `Program.ConfigureServices` without modifying `WindowsPrintService`.
    - **Liskov Substitution (LSP):** All renderers must support synchronous drawing onto the supplied `Graphics` surface while respecting the target `printableArea`, DPI, and aspect ratio.
    - **Interface Segregation (ISP):** Keep interfaces fine-grained in `Core/Abstractions/`.
-   - **Dependency Inversion (DIP):** Presentation and future web servers must depend exclusively on abstractions injected via `IServiceProvider`.
+   - **Dependency Inversion (DIP):** Presentation and web servers must depend exclusively on abstractions injected via `IServiceProvider`.
 
 ---
 
 ## 3. Directory Layout & Module Roles
 
 ```
-OhMyPrinter/
+Printman/
 ├── Core/
 │   ├── Abstractions/            # Fine-grained interfaces
 │   │   ├── IPrinterDiscoveryService.cs  # Enumerate & fuzzy-match printers
 │   │   ├── IDocumentRenderer.cs         # Strategy for rendering document pages
 │   │   ├── IDocumentRendererResolver.cs # Resolves renderer by file extension
 │   │   ├── IPrintJobValidator.cs        # Pre-execution request validation
+│   │   ├── IFileCacheService.cs         # Content-addressed hashing & LRU cache
+│   │   ├── IPrintEventHub.cs            # SSE streaming abstraction
 │   │   └── IPrintService.cs             # Print orchestration and spooling
 │   └── Models/                  # Pure data structures / DTOs
 │       ├── PrintJobRequest.cs           # Agnostic print job payload
 │       ├── PrintJobResult.cs            # Outcome status, counts, error messages
 │       ├── PrinterInfo.cs               # Printer metadata, paper sizes, duplex
 │       ├── PaperSizeOption.cs           # Name, width/height mm
+│       ├── ServerModels.cs              # Web upload, batch print, and SSE event payloads
 │       ├── PageRange.cs                 # Expression parser (1:3, 1-3, 1,3,5, all)
 │       └── PrintEnums.cs                # Orientation, Duplex, ColorMode
 ├── Services/                    # Concrete implementations
 │   ├── WindowsPrinterDiscoveryService.cs # System.Drawing.Printing discovery
 │   ├── PrintJobValidator.cs              # Validates paths, pages, and capabilities
 │   ├── DocumentRendererResolver.cs       # Extension-based resolver
+│   ├── FileCacheService.cs               # SHA-256 disk cache & LRU quota manager
+│   ├── PrintEventHub.cs                  # SSE subscription & channel broadcast
 │   ├── WindowsPrintService.cs            # PrintDocument spooling & page loop
 │   └── Renderers/
 │       ├── PdfDocumentRenderer.cs        # WinRT Windows.Data.Pdf (300 DPI)
 │       ├── ImageDocumentRenderer.cs      # GDI+ image rasterization
 │       └── TextDocumentRenderer.cs       # Monospaced line-wrapped text
+├── Server/                      # Embedded Kestrel LAN Web Server
+│   ├── PrintingWebServerHost.cs          # Minimal API routes & queue worker
+│   └── WebAssets.cs                      # Mobile-responsive web SPA & CSS/JS
 ├── CLI/                         # Command-Line Parser & Subcommand Dispatcher
 │   ├── ParsedArguments.cs
 │   ├── CommandLineParser.cs              # Positional + flag parser
@@ -63,7 +70,7 @@ OhMyPrinter/
 ├── Interactive/                 # Terminal UI & Interactive Wizard
 │   ├── ConsoleUi.cs                      # ANSI colors, tables, banner
 │   └── InteractiveWizard.cs              # Step-by-step guided printing prompt
-├── OhMyPrinter.csproj           # Project configuration
+├── Printman.csproj              # Project configuration
 ├── Program.cs                   # Composition Root & DI configuration
 ├── sample.txt                   # Sample test text file
 └── test_sample.pdf              # Sample 3-page test PDF
@@ -74,10 +81,32 @@ OhMyPrinter/
 ## 4. Web Server Architecture (`server` / `serve`)
 
 The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestrel (enabled via `<FrameworkReference Include="Microsoft.AspNetCore.App" />`):
-1. **Command:** `ohmyprinter server --port 5000` (or `serve`, alias `--ip 0.0.0.0`).
-2. **Features:**
-   - Detects local LAN IPv4 network interfaces and displays mobile-accessible URLs (e.g. `http://192.168.1.X:5000`).
-   - Mobile-first responsive web SPA in `Server/WebAssets.cs` (drag-and-drop, multi-file queue, printer picker, paper size filter, copies, duplex, and color options).
+1. **Command:** `printman server [options]` (aliases: `serve`)
+   - `--port <port>`: Port to bind (default: `5000`).
+   - `--ip <address>`: IP binding address (default: `0.0.0.0`).
+   - `--pin <pin>`: Explicit 4-8 character PIN (default: auto-generates secure 6-digit random PIN).
+   - `--no-auth` / `--allow-anonymous`: Disable PIN authentication (open access mode).
+   - `--max-upload-mb <n>`: Maximum file upload size limit in MB (default: `50`).
+   - `--cache-limit-mb <n>`: Total disk cache limit in MB before LRU eviction (default: `500`).
+2. **Features & Security Architecture:**
+   - Detects local LAN IPv4 network interfaces and displays mobile-accessible URLs with quick-auth token links (e.g. `http://192.168.1.X:5000/?pin=123456`).
+   - Mobile-first responsive web SPA in `Server/WebAssets.cs` (PIN lock screen, drag-and-drop, multi-file queue, printer picker, paper size filter, copies, duplex, and color options).
+   - **PIN Authentication & Session Security (`sec-01`):**
+     - Constant-time PIN verification preventing timing attacks.
+     - Ephemeral session tokens issued via HTTP-only / SameSite cookies (`printman_auth`) or `X-Printer-Pin` / `X-Session-Token` headers.
+     - All API routes and SSE streams require active authentication when PIN protection is enabled.
+   - **Intranet CSRF Mitigation (`sec-04`):**
+     - Custom anti-CSRF header enforcement (`X-Requested-With: Printman`).
+     - Strict `Origin` and `Referer` validation against local server binding hosts for state-changing requests.
+   - **Strict File Type Whitelist & DoS Protection (`sec-02`):**
+     - Extension whitelist (`.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`, `.txt`, `.log`, `.csv`, `.json`, `.md`).
+     - Kestrel request body limit and streaming byte counter enforcement (`MaxFileSizeBytes`).
+   - **LRU Cache Quota Eviction (`sec-05`):**
+     - `IFileCacheService` tracks disk usage against `MaxCacheSizeBytes` (default 500 MB) and evicts oldest unreferenced files on disk.
+   - **Serialized Print Spooling Queue (`sec-06`):**
+     - Background `Channel<WebBatchPrintRequest>` queue worker serializes concurrent print jobs to prevent Windows GDI+/spooler race conditions and thread pool starvation.
+   - **Generic Sanitized Error Responses (`sec-03`):**
+     - Internal stack traces and file paths stripped from API client responses; detailed traces logged to console only.
    - **Fast Hash File Cache (`IFileCacheService` / `FileCacheService`):**
      - Uploads are SHA-256 hashed and cached in `cache/{hash}{ext}` next to the executable.
      - Automatically deduplicates existing files to avoid redundant writes.
@@ -85,10 +114,12 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
      - Real-time updates delivered to web clients via Server-Sent Events (`GET /api/events`) over HTTP without WebSockets.
    - **REST API Endpoints:**
      - `GET /` -> Mobile SPA web page.
+     - `GET /api/auth/status` -> Check if authentication is enabled and session is authenticated.
+     - `POST /api/auth/verify` -> Verify PIN and obtain session cookie/token.
      - `GET /api/printers` -> JSON list of installed printers.
      - `GET /api/printers/{name}` -> JSON details of a specific printer.
      - `POST /api/upload` -> Multipart file upload with fast hash deduplication & page count discovery.
-     - `POST /api/print` -> Submits batch print request; processes files sequentially while streaming live progress.
+     - `POST /api/print` -> Submits batch print request; enqueues into serialized print worker with live SSE progress.
      - `GET /api/events` -> SSE event stream (`text/event-stream`).
 
 ---

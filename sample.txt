@@ -1,5 +1,5 @@
 ======================================================
-         OH-MY-PRINTER TEST DOCUMENT
+         PRINTMAN TEST DOCUMENT
 ======================================================
 Date: 2026-09-20
 Target: Universal Windows Printing Engine
@@ -9,7 +9,7 @@ Testing:
 - SOLID principles architecture
 - CLI & Interactive interface
 
-Line 1: Hello from ohmyprinter!
+Line 1: Hello from Printman!
 Line 2: Built natively with .NET 10 & Windows WinRT APIs.
 Line 3: Zero external NuGet packages.
 ======================================================

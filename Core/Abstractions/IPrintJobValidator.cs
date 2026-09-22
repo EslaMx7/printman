@@ -1,6 +1,6 @@
-using OhMyPrinter.Core.Models;
+﻿using Printman.Core.Models;
 
-namespace OhMyPrinter.Core.Abstractions;
+namespace Printman.Core.Abstractions;
 
 public record ValidationResult(bool IsValid, string? ErrorMessage = null)
 {

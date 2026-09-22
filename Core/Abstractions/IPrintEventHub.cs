@@ -1,7 +1,7 @@
-using System.Threading.Channels;
-using OhMyPrinter.Core.Models;
+﻿using System.Threading.Channels;
+using Printman.Core.Models;
 
-namespace OhMyPrinter.Core.Abstractions;
+namespace Printman.Core.Abstractions;
 
 public interface IPrintEventHub
 {

@@ -1,6 +1,6 @@
-using OhMyPrinter.Core.Models;
+using Printman.Core.Models;
 
-namespace OhMyPrinter.CLI;
+namespace Printman.CLI;
 
 public static class CommandLineParser
 {
@@ -87,6 +87,43 @@ public static class CommandLineParser
                         if (!string.IsNullOrWhiteSpace(ipVal))
                         {
                             result.BindAddress = ipVal;
+                        }
+                        break;
+
+                    case "--pin" or "-pin":
+                        var pinVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
+                        if (!string.IsNullOrWhiteSpace(pinVal))
+                        {
+                            result.ServerPin = pinVal;
+                            result.RequireAuth = true;
+                        }
+                        break;
+
+                    case "--no-auth" or "-no-auth" or "--allow-anonymous" or "-allow-anonymous":
+                        result.RequireAuth = false;
+                        break;
+
+                    case "--max-upload-mb" or "-max-upload-mb":
+                        var maxMbVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
+                        if (int.TryParse(maxMbVal, out int maxMb) && maxMb > 0)
+                        {
+                            result.MaxUploadMb = maxMb;
+                        }
+                        else
+                        {
+                            throw new FormatException($"Invalid max upload MB: '{maxMbVal}'. Must be an integer > 0.");
+                        }
+                        break;
+
+                    case "--cache-limit-mb" or "-cache-limit-mb":
+                        var cacheMbVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
+                        if (int.TryParse(cacheMbVal, out int cacheMb) && cacheMb > 0)
+                        {
+                            result.CacheLimitMb = cacheMb;
+                        }
+                        else
+                        {
+                            throw new FormatException($"Invalid cache limit MB: '{cacheMbVal}'. Must be an integer > 0.");
                         }
                         break;
                 }
@@ -197,7 +234,7 @@ public static class CommandLineParser
                     }
                     else
                     {
-                        throw new ArgumentException($"Unrecognized command-line argument: '{arg}'. Run 'ohmyprinter --help' for usage.");
+                        throw new ArgumentException($"Unrecognized command-line argument: '{arg}'. Run 'printman --help' for usage.");
                     }
                     break;
             }

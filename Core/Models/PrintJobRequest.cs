@@ -1,4 +1,4 @@
-namespace OhMyPrinter.Core.Models;
+﻿namespace Printman.Core.Models;
 
 public class PrintJobRequest
 {

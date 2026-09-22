@@ -1,10 +1,10 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using Windows.Data.Pdf;
 using Windows.Storage;
-using OhMyPrinter.Core.Abstractions;
+using Printman.Core.Abstractions;
 
-namespace OhMyPrinter.Services.Renderers;
+namespace Printman.Services.Renderers;
 
 public class PdfDocumentRenderer : IDocumentRenderer
 {

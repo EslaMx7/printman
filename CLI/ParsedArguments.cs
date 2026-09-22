@@ -1,6 +1,6 @@
-using OhMyPrinter.Core.Models;
+﻿using Printman.Core.Models;
 
-namespace OhMyPrinter.CLI;
+namespace Printman.CLI;
 
 public class ParsedArguments
 {
@@ -19,6 +19,10 @@ public class ParsedArguments
     public string? QueryTarget { get; set; } // For "info <printer>" command
     public int ServerPort { get; set; } = 5000;
     public string BindAddress { get; set; } = "0.0.0.0";
+    public string? ServerPin { get; set; }
+    public bool RequireAuth { get; set; } = true;
+    public int MaxUploadMb { get; set; } = 50;
+    public int CacheLimitMb { get; set; } = 500;
 
     public PrintJobRequest ToPrintJobRequest()
     {

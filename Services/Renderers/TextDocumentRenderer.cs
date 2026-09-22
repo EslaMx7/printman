@@ -1,8 +1,8 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Text;
-using OhMyPrinter.Core.Abstractions;
+using Printman.Core.Abstractions;
 
-namespace OhMyPrinter.Services.Renderers;
+namespace Printman.Services.Renderers;
 
 public class TextDocumentRenderer : IDocumentRenderer
 {

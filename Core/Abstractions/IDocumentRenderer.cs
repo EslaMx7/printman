@@ -1,6 +1,6 @@
-using System.Drawing;
+﻿using System.Drawing;
 
-namespace OhMyPrinter.Core.Abstractions;
+namespace Printman.Core.Abstractions;
 
 public interface IDocumentRenderer
 {

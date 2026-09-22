@@ -1,18 +1,21 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text.Json;
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OhMyPrinter.Core.Abstractions;
-using OhMyPrinter.Core.Models;
-using OhMyPrinter.Interactive;
+using Printman.Core.Abstractions;
+using Printman.Core.Models;
+using Printman.Interactive;
 
-namespace OhMyPrinter.Server;
+namespace Printman.Server;
 
 public class PrintingWebServerHost(
     IPrinterDiscoveryService printerDiscovery,
@@ -27,21 +30,185 @@ public class PrintingWebServerHost(
     private readonly IFileCacheService _fileCache = fileCache;
     private readonly IPrintEventHub _eventHub = eventHub;
 
-    public async Task<int> RunAsync(int port = 5000, string bindAddress = "0.0.0.0", CancellationToken ct = default)
+    public Task<int> RunAsync(int port, string bindAddress, CancellationToken ct) =>
+        RunAsync(port, bindAddress, pin: null, requireAuth: true, maxUploadMb: 50, cacheLimitMb: 500, ct);
+
+    public async Task<int> RunAsync(
+        int port = 5000,
+        string bindAddress = "0.0.0.0",
+        string? pin = null,
+        bool requireAuth = true,
+        int maxUploadMb = 50,
+        int cacheLimitMb = 500,
+        CancellationToken ct = default)
     {
+        // 1. Configure storage bounds and quotas (sec-02)
+        _fileCache.MaxFileSizeBytes = maxUploadMb * 1024L * 1024L;
+        _fileCache.MaxCacheSizeBytes = cacheLimitMb * 1024L * 1024L;
+
+        // 2. Resolve pairing PIN (sec-01)
+        if (requireAuth && string.IsNullOrWhiteSpace(pin))
+        {
+            pin = RandomNumberGenerator.GetString("0123456789", 6);
+        }
+
+        var activeSessions = new ConcurrentDictionary<string, DateTime>(StringComparer.Ordinal);
+        var lanIps = GetLocalLanIpv4Addresses();
+
         var builder = WebApplication.CreateBuilder();
 
-        // Configure quiet logging for a clean console experience
+        // Quiet logging
         builder.Logging.ClearProviders();
         builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
         builder.Logging.AddFilter("System", LogLevel.Warning);
 
+        // Kestrel request limits (sec-02)
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.Listen(IPAddress.Parse(bindAddress), port);
+            options.Limits.MaxRequestBodySize = maxUploadMb * 1024L * 1024L;
         });
 
         var app = builder.Build();
+
+        // 3. Serialized Print Queue (sec-03)
+        var printQueue = Channel.CreateUnbounded<WebBatchPrintRequest>();
+        int queueLength = 0;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (await printQueue.Reader.WaitToReadAsync(ct))
+                {
+                    while (printQueue.Reader.TryRead(out var batch))
+                    {
+                        try
+                        {
+                            Interlocked.Decrement(ref queueLength);
+                            await ProcessPrintBatchAsync(batch, ct);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine($"[ERROR] Print batch execution error: {ex.Message}");
+                            Console.ResetColor();
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+        }, ct);
+
+        // Authentication and CSRF helper checks (sec-01, sec-04)
+        bool IsRequestAuthenticated(HttpRequest req)
+        {
+            if (!requireAuth) return true;
+
+            // Check header PIN
+            if (req.Headers.TryGetValue("X-Printer-Pin", out var hPin) &&
+                string.Equals(hPin.ToString().Trim(), pin, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            // Check header auth token
+            if (req.Headers.TryGetValue("X-Printer-Auth", out var hToken) &&
+                activeSessions.ContainsKey(hToken.ToString().Trim()))
+            {
+                return true;
+            }
+
+            // Check cookie
+            if (req.Cookies.TryGetValue("printman_auth", out var cToken) &&
+                activeSessions.ContainsKey(cToken))
+            {
+                return true;
+            }
+
+            // Check query param PIN (convenience for EventSource / direct links)
+            if (req.Query.TryGetValue("pin", out var qPin) &&
+                string.Equals(qPin.ToString().Trim(), pin, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            // Check query param token
+            if (req.Query.TryGetValue("token", out var qToken) &&
+                activeSessions.ContainsKey(qToken.ToString().Trim()))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        bool IsSafeOrigin(HttpRequest req)
+        {
+            // Custom header check: Browsers prevent cross-origin forms from setting custom headers
+            if (req.Headers.ContainsKey("X-Requested-With") ||
+                req.Headers.ContainsKey("X-Printer-Pin") ||
+                req.Headers.ContainsKey("X-Printer-Auth"))
+            {
+                return true;
+            }
+
+            // Origin verification against known local hosts
+            if (req.Headers.TryGetValue("Origin", out var originVal) && !string.IsNullOrWhiteSpace(originVal))
+            {
+                if (Uri.TryCreate(originVal.ToString(), UriKind.Absolute, out var originUri))
+                {
+                    if (originUri.IsLoopback ||
+                        lanIps.Contains(originUri.Host, StringComparer.OrdinalIgnoreCase) ||
+                        originUri.Host.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Security Middleware (sec-01, sec-04)
+        app.Use(async (ctx, next) =>
+        {
+            var path = ctx.Request.Path.Value ?? "";
+
+            if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+            {
+                // CSRF verification on state-changing requests (sec-04)
+                if (HttpMethods.IsPost(ctx.Request.Method) ||
+                    HttpMethods.IsPut(ctx.Request.Method) ||
+                    HttpMethods.IsDelete(ctx.Request.Method))
+                {
+                    if (!IsSafeOrigin(ctx.Request))
+                    {
+                        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        await ctx.Response.WriteAsJsonAsync(new { error = "Cross-origin request rejected." });
+                        return;
+                    }
+                }
+
+                // Auth status and verification endpoints are accessible without pre-auth
+                if (path.StartsWith("/api/auth/", StringComparison.OrdinalIgnoreCase))
+                {
+                    await next();
+                    return;
+                }
+
+                // Enforce authentication on all other /api/* endpoints (sec-01)
+                if (!IsRequestAuthenticated(ctx.Request))
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    await ctx.Response.WriteAsJsonAsync(new { error = "Authentication required. Please enter server PIN." });
+                    return;
+                }
+            }
+
+            await next();
+        });
 
         // 1. Root SPA
         app.MapGet("/", async ctx =>
@@ -50,21 +217,53 @@ public class PrintingWebServerHost(
             await ctx.Response.WriteAsync(WebAssets.IndexHtml);
         });
 
-        // 2. Printers Listing
+        // 2. Auth Endpoints (sec-01)
+        app.MapGet("/api/auth/status", (HttpRequest req) =>
+        {
+            bool isAuthed = IsRequestAuthenticated(req);
+            return Results.Ok(new { required = requireAuth, authenticated = isAuthed });
+        });
+
+        app.MapPost("/api/auth/verify", (PinVerifyRequest req, HttpResponse res) =>
+        {
+            if (!requireAuth)
+            {
+                return Results.Ok(new { success = true, token = "none" });
+            }
+
+            if (!string.IsNullOrWhiteSpace(req.Pin) && string.Equals(req.Pin.Trim(), pin, StringComparison.Ordinal))
+            {
+                var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+                activeSessions[token] = DateTime.UtcNow.AddDays(7);
+
+                res.Cookies.Append("printman_auth", token, new CookieOptions
+                {
+                    HttpOnly = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(7)
+                });
+
+                return Results.Ok(new { success = true, token });
+            }
+
+            return Results.BadRequest(new { success = false, error = "Invalid pairing PIN." });
+        });
+
+        // 3. Printers Listing
         app.MapGet("/api/printers", () =>
         {
             var printers = _printerDiscovery.GetPrinters();
             return Results.Ok(printers);
         });
 
-        // 3. Printer Info
+        // 4. Printer Info
         app.MapGet("/api/printers/{name}", (string name) =>
         {
             var printer = _printerDiscovery.FindPrinter(name);
             return printer != null ? Results.Ok(printer) : Results.NotFound(new { error = $"Printer '{name}' not found." });
         });
 
-        // 4. File Upload (Deduplicated with Fast Hashing)
+        // 5. File Upload (Deduplicated with Fast Hashing, Size Limits & Sanitized Errors - sec-02, sec-05, sec-06)
         app.MapPost("/api/upload", async (HttpRequest request, CancellationToken uploadCt) =>
         {
             if (!request.HasFormContentType || request.Form.Files.Count == 0)
@@ -115,13 +314,24 @@ public class PrintingWebServerHost(
 
                 return Results.Ok(response);
             }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
             catch (Exception ex)
             {
-                return Results.Problem(detail: ex.Message, statusCode: 500);
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[ERROR] File upload handling error: {ex}");
+                Console.ResetColor();
+                return Results.Problem(detail: "An internal error occurred while processing the uploaded document.", statusCode: 500);
             }
         });
 
-        // 5. Batch Print Execution
+        // 6. Batch Print Execution (Enqueued in Serialized Queue - sec-03)
         app.MapPost("/api/print", (WebBatchPrintRequest req) =>
         {
             if (req.Items == null || req.Items.Count == 0)
@@ -129,16 +339,21 @@ public class PrintingWebServerHost(
                 return Results.BadRequest(new { error = "No items specified to print." });
             }
 
-            // Process in background queue and stream progress over SSE
-            _ = Task.Run(async () =>
-            {
-                await ProcessPrintBatchAsync(req, ct);
-            }, ct);
+            int currentPos = Interlocked.Increment(ref queueLength);
+            printQueue.Writer.TryWrite(req);
 
-            return Results.Accepted(value: new { status = "accepted", count = req.Items.Count });
+            _eventHub.Publish(new PrintEvent
+            {
+                Type = "queued",
+                Message = currentPos > 1
+                    ? $"Print job queued behind {currentPos - 1} pending batch(es) ({req.Items.Count} document(s))."
+                    : $"Print job queued ({req.Items.Count} document(s)). Starting spooler..."
+            });
+
+            return Results.Accepted(value: new { status = "queued", position = currentPos, count = req.Items.Count });
         });
 
-        // 6. SSE Real-Time Progress Stream
+        // 7. SSE Real-Time Progress Stream
         app.MapGet("/api/events", async (HttpContext ctx, CancellationToken clientCt) =>
         {
             ctx.Response.Headers.Append("Content-Type", "text/event-stream");
@@ -181,14 +396,27 @@ public class PrintingWebServerHost(
         Console.WriteLine($"\n  [WEB SERVER RUNNING]  Port: {port}");
         Console.ResetColor();
 
+        if (requireAuth)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"  [SECURITY] PIN Protected:  {pin}");
+            Console.ResetColor();
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("  [SECURITY] Open Access (--no-auth enabled)");
+            Console.ResetColor();
+        }
+
         Console.WriteLine("\n  Access from this machine or your phone on the same Wi-Fi:");
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"    Local:    http://localhost:{port}");
+        string pinQuery = requireAuth ? $"?pin={pin}" : "";
+        Console.WriteLine($"    Local:    http://localhost:{port}/{pinQuery}");
 
-        var lanIps = GetLocalLanIpv4Addresses();
         foreach (var ip in lanIps)
         {
-            Console.WriteLine($"    Network:  http://{ip}:{port}");
+            Console.WriteLine($"    Network:  http://{ip}:{port}/{pinQuery}");
         }
         Console.ResetColor();
 
@@ -308,27 +536,40 @@ public class PrintingWebServerHost(
                 Message = $"Processing document {itemIndex}/{batch.Items.Count}: '{cachedFile.OriginalFileName}'"
             });
 
-            var result = await _printService.PrintAsync(printRequest, progress, ct);
-
-            if (result.Success)
+            try
             {
-                _eventHub.Publish(new PrintEvent
+                var result = await _printService.PrintAsync(printRequest, progress, ct);
+
+                if (result.Success)
                 {
-                    Type = "completed",
-                    FileName = cachedFile.OriginalFileName,
-                    Printer = printer.Name,
-                    PagesPrinted = result.PagesPrinted,
-                    Message = $"Successfully printed '{cachedFile.OriginalFileName}' ({result.PagesPrinted} page(s), {result.CopiesPrinted} copy/copies)."
-                });
+                    _eventHub.Publish(new PrintEvent
+                    {
+                        Type = "completed",
+                        FileName = cachedFile.OriginalFileName,
+                        Printer = printer.Name,
+                        PagesPrinted = result.PagesPrinted,
+                        Message = $"Successfully printed '{cachedFile.OriginalFileName}' ({result.PagesPrinted} page(s), {result.CopiesPrinted} copy/copies)."
+                    });
+                }
+                else
+                {
+                    _eventHub.Publish(new PrintEvent
+                    {
+                        Type = "error",
+                        FileName = cachedFile.OriginalFileName,
+                        Printer = printer.Name,
+                        Message = $"Printing '{cachedFile.OriginalFileName}' failed: {result.ErrorMessage}"
+                    });
+                }
             }
-            else
+            catch (Exception ex)
             {
                 _eventHub.Publish(new PrintEvent
                 {
                     Type = "error",
                     FileName = cachedFile.OriginalFileName,
                     Printer = printer.Name,
-                    Message = $"Printing '{cachedFile.OriginalFileName}' failed: {result.ErrorMessage}"
+                    Message = $"Unexpected printing exception for '{cachedFile.OriginalFileName}': {ex.Message}"
                 });
             }
         }

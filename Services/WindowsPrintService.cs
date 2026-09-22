@@ -1,9 +1,9 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Printing;
-using OhMyPrinter.Core.Abstractions;
-using OhMyPrinter.Core.Models;
+using Printman.Core.Abstractions;
+using Printman.Core.Models;
 
-namespace OhMyPrinter.Services;
+namespace Printman.Services;
 
 public class WindowsPrintService(
     IPrinterDiscoveryService printerDiscovery,

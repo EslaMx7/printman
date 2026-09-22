@@ -1,7 +1,7 @@
-using OhMyPrinter.Core.Abstractions;
-using OhMyPrinter.Core.Models;
+﻿using Printman.Core.Abstractions;
+using Printman.Core.Models;
 
-namespace OhMyPrinter.Interactive;
+namespace Printman.Interactive;
 
 public class InteractiveWizard(
     IPrinterDiscoveryService printerDiscovery,
@@ -80,6 +80,21 @@ public class InteractiveWizard(
             }
         }
 
+        Console.Write("Require PIN protection? [Y/n] (default Yes): ");
+        var authInput = Console.ReadLine()?.Trim().ToLowerInvariant();
+        bool requireAuth = authInput != "n" && authInput != "no";
+        string? pin = null;
+
+        if (requireAuth)
+        {
+            Console.Write("Enter custom PIN (Enter to auto-generate): ");
+            var customPin = Console.ReadLine()?.Trim();
+            if (!string.IsNullOrEmpty(customPin))
+            {
+                pin = customPin;
+            }
+        }
+
         using var cts = new CancellationTokenSource();
         ConsoleCancelEventHandler cancelHandler = (s, e) =>
         {
@@ -90,7 +105,14 @@ public class InteractiveWizard(
 
         try
         {
-            await _webServer.RunAsync(port, "0.0.0.0", cts.Token);
+            await _webServer.RunAsync(
+                port: port,
+                bindAddress: "0.0.0.0",
+                pin: pin,
+                requireAuth: requireAuth,
+                maxUploadMb: 50,
+                cacheLimitMb: 500,
+                ct: cts.Token);
         }
         finally
         {

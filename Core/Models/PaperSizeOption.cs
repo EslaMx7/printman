@@ -1,6 +1,6 @@
-using System.Drawing.Printing;
+﻿using System.Drawing.Printing;
 
-namespace OhMyPrinter.Core.Models;
+namespace Printman.Core.Models;
 
 public record PaperSizeOption(string Name, int RawKind, int WidthHundredthsInch, int HeightHundredthsInch)
 {

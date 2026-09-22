@@ -4,8 +4,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <AssemblyName>ohmyprinter</AssemblyName>
-    <RootNamespace>OhMyPrinter</RootNamespace>
+    <AssemblyName>printman</AssemblyName>
+    <RootNamespace>Printman</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>

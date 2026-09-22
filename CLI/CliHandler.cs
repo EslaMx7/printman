@@ -1,8 +1,8 @@
-using OhMyPrinter.Core.Abstractions;
-using OhMyPrinter.Core.Models;
-using OhMyPrinter.Interactive;
+﻿using Printman.Core.Abstractions;
+using Printman.Core.Models;
+using Printman.Interactive;
 
-namespace OhMyPrinter.CLI;
+namespace Printman.CLI;
 
 public class CliHandler(
     IPrinterDiscoveryService printerDiscovery,
@@ -28,7 +28,13 @@ public class CliHandler(
                 return HandlePrinterInfo(parsedArgs.QueryTarget);
 
             case CliCommandType.Server:
-                return await _webServer.RunAsync(parsedArgs.ServerPort, parsedArgs.BindAddress);
+                return await _webServer.RunAsync(
+                    parsedArgs.ServerPort,
+                    parsedArgs.BindAddress,
+                    parsedArgs.ServerPin,
+                    parsedArgs.RequireAuth,
+                    parsedArgs.MaxUploadMb,
+                    parsedArgs.CacheLimitMb);
 
             case CliCommandType.Print:
                 return await HandlePrintAsync(parsedArgs.ToPrintJobRequest());

@@ -1,4 +1,4 @@
-namespace OhMyPrinter.Server;
+namespace Printman.Server;
 
 public static class WebAssets
 {
@@ -8,7 +8,7 @@ public static class WebAssets
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Oh-My-Printer • Mobile Print Server</title>
+  <title>Printman • Mobile Print Server</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -89,6 +89,7 @@ public static class WebAssets
     .log-progress { color: var(--primary); }
     .log-completed { color: var(--accent); }
     .log-error { color: var(--danger); }
+    .log-queued { color: var(--warning); }
 
     /* Progress bar */
     .progress-bar-wrap { height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-top: 6px; }
@@ -96,12 +97,24 @@ public static class WebAssets
   </style>
 </head>
 <body>
+  <!-- PIN Authentication Modal (sec-01) -->
+  <div id="pinModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.94); backdrop-filter:blur(6px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="width:100%; max-width:380px; text-align:center; padding:26px 20px;">
+      <div style="font-size:2.4rem; margin-bottom:12px;">🔒</div>
+      <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:6px;">Server Authentication</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:18px;">Enter the 6-digit PIN shown on the server console to connect:</p>
+      <input type="text" id="pinInput" maxlength="12" placeholder="PIN Code" style="text-align:center; font-size:1.4rem; letter-spacing:4px; font-weight:700; margin-bottom:12px;" autocomplete="off">
+      <div id="pinError" style="color:var(--danger); font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+      <button type="button" class="btn-primary" onclick="verifyPin()">Unlock Server</button>
+    </div>
+  </div>
+
   <div class="container">
     <!-- Header -->
     <div class="header">
       <div class="header-title">
         <span class="header-icon">🖨️</span>
-        <span>Oh-My-Printer</span>
+        <span>Printman</span>
       </div>
       <div id="connBadge" class="connection-badge disconnected">
         <span class="dot"></span>
@@ -119,7 +132,7 @@ public static class WebAssets
       <div id="dropZone" class="dropzone">
         <div class="dropzone-icon">📁</div>
         <div class="dropzone-text">Tap to select or drop files here</div>
-        <div class="dropzone-hint">Supports PDF, PNG, JPG, BMP, TIFF, TXT, LOG, CSV</div>
+        <div class="dropzone-hint">Supports PDF, PNG, JPG, BMP, TIFF, TXT, LOG, CSV (Max 50MB)</div>
       </div>
       <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.bmp,.gif,.tiff,.tif,.txt,.log,.csv,.json,.md">
 
@@ -227,7 +240,9 @@ public static class WebAssets
     const state = {
       printers: [],
       uploadedFiles: [], // { fileId, fileName, fileSize, pageCount, isDuplicate }
-      isPrinting: false
+      isPrinting: false,
+      pin: null,
+      authRequired: true
     };
 
     // Elements
@@ -244,17 +259,126 @@ public static class WebAssets
     const connBadge = document.getElementById('connBadge');
     const connText = document.getElementById('connText');
 
+    // Headers generator (includes CSRF defense and PIN auth - sec-01, sec-04)
+    function getHeaders(contentType) {
+      const h = { 'X-Requested-With': 'Printman' };
+      if (contentType) h['Content-Type'] = contentType;
+      const pin = state.pin || localStorage.getItem('printman_pin');
+      if (pin) h['X-Printer-Pin'] = pin;
+      return h;
+    }
+
     // Init
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       initDropZone();
-      loadPrinters();
-      initSSE();
+
+      // Check URL query param ?pin=
+      const urlPin = new URLSearchParams(window.location.search).get('pin');
+      if (urlPin) {
+        localStorage.setItem('printman_pin', urlPin);
+        state.pin = urlPin;
+      } else {
+        state.pin = localStorage.getItem('printman_pin');
+      }
+
+      await checkAuthAndInit();
     });
+
+    async function checkAuthAndInit() {
+      try {
+        const res = await fetch('/api/auth/status', { headers: getHeaders() });
+        const data = await res.json();
+        state.authRequired = data.required;
+
+        if (state.authRequired && !data.authenticated) {
+          if (state.pin) {
+            const ok = await submitPinVerification(state.pin);
+            if (ok) {
+              hidePinModal();
+              loadPrinters();
+              initSSE();
+              return;
+            }
+          }
+          showPinModal();
+          return;
+        }
+
+        hidePinModal();
+        loadPrinters();
+        initSSE();
+      } catch (err) {
+        console.error('Auth status check error:', err);
+        loadPrinters();
+        initSSE();
+      }
+    }
+
+    function showPinModal() {
+      const modal = document.getElementById('pinModal');
+      modal.style.display = 'flex';
+      const input = document.getElementById('pinInput');
+      input.focus();
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') verifyPin();
+      });
+    }
+
+    function hidePinModal() {
+      document.getElementById('pinModal').style.display = 'none';
+    }
+
+    async function verifyPin() {
+      const pinInput = document.getElementById('pinInput');
+      const pin = pinInput.value.trim();
+      if (!pin) return;
+      const ok = await submitPinVerification(pin);
+      if (ok) {
+        hidePinModal();
+        loadPrinters();
+        initSSE();
+      }
+    }
+
+    async function submitPinVerification(pinToVerify) {
+      const pinError = document.getElementById('pinError');
+      pinError.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'Printman'
+          },
+          body: JSON.stringify({ pin: pinToVerify })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          pinError.textContent = data.error || 'Invalid PIN. Check the server console.';
+          pinError.style.display = 'block';
+          return false;
+        }
+
+        state.pin = pinToVerify;
+        localStorage.setItem('printman_pin', pinToVerify);
+        return true;
+      } catch (err) {
+        pinError.textContent = 'Connection error: ' + err.message;
+        pinError.style.display = 'block';
+        return false;
+      }
+    }
 
     // Printers
     async function loadPrinters() {
       try {
-        const res = await fetch('/api/printers');
+        const res = await fetch('/api/printers', { headers: getHeaders() });
+        if (res.status === 401) {
+          showPinModal();
+          return;
+        }
         state.printers = await res.json();
         
         printerSelect.innerHTML = '';
@@ -337,6 +461,11 @@ public static class WebAssets
 
     async function uploadFiles(files) {
       for (const file of files) {
+        if (file.size > 50 * 1024 * 1024) {
+          addLog('error', `File '${file.name}' exceeds the 50 MB upload limit.`);
+          continue;
+        }
+
         addLog('progress', `Uploading '${file.name}' (${formatBytes(file.size)})...`);
         const formData = new FormData();
         formData.append('file', file);
@@ -344,12 +473,18 @@ public static class WebAssets
         try {
           const res = await fetch('/api/upload', {
             method: 'POST',
+            headers: getHeaders(),
             body: formData
           });
 
+          if (res.status === 401) {
+            showPinModal();
+            return;
+          }
+
           if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.error || 'Upload failed');
+            throw new Error(err.error || err.detail || 'Upload failed');
           }
 
           const info = await res.json();
@@ -442,16 +577,24 @@ public static class WebAssets
       try {
         const res = await fetch('/api/print', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getHeaders('application/json'),
           body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Printing failed');
+        if (res.status === 401) {
+          showPinModal();
+          state.isPrinting = false;
+          renderQueue();
+          return;
         }
 
-        addLog('progress', `Print batch accepted by server (${payload.items.length} file(s)). Execution in progress...`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || data.detail || 'Printing failed');
+        }
+
+        const queueNote = data.position > 1 ? ` (Queue position: ${data.position})` : '';
+        addLog('progress', `Print batch accepted by server (${payload.items.length} file(s))${queueNote}. Execution in progress...`);
       } catch (err) {
         addLog('error', 'Print submission error: ' + err.message);
         state.isPrinting = false;
@@ -461,7 +604,9 @@ public static class WebAssets
 
     // SSE (Server-Sent Events)
     function initSSE() {
-      const evtSource = new EventSource('/api/events');
+      const pin = state.pin || localStorage.getItem('printman_pin');
+      const url = pin ? `/api/events?pin=${encodeURIComponent(pin)}` : '/api/events';
+      const evtSource = new EventSource(url);
 
       evtSource.onopen = () => {
         connBadge.className = 'connection-badge connected';
@@ -515,7 +660,7 @@ public static class WebAssets
       let icon = 'ℹ️';
       if (type === 'completed') { typeClass = 'log-completed'; icon = '✅'; }
       else if (type === 'error') { typeClass = 'log-error'; icon = '❌'; }
-      else if (type === 'queued') { icon = '⏳'; }
+      else if (type === 'queued') { typeClass = 'log-queued'; icon = '⏳'; }
 
       item.innerHTML = `
         <span class="log-time">${timeStr}</span>

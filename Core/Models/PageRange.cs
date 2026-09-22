@@ -1,6 +1,6 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
-namespace OhMyPrinter.Core.Models;
+namespace Printman.Core.Models;
 
 public class PageRange
 {
@@ -51,22 +51,26 @@ public class PageRange
                 var start = int.Parse(match.Groups["start"].Value);
                 var end = int.Parse(match.Groups["end"].Value);
                 if (start < 1 || end < 1) throw new FormatException($"Page numbers must be >= 1 (got {start} to {end}).");
+                if (start > 50000 || end > 50000) throw new FormatException("Page numbers cannot exceed 50,000.");
                 if (start > end)
                 {
                     (start, end) = (end, start); // Automatically normalize order
                 }
+                if (end - start > 10000) throw new FormatException($"Page range span cannot exceed 10,000 pages (got {end - start + 1}).");
                 selectors.Add(new RangePageSelector(start, end));
             }
             else if (match.Groups["from"].Success)
             {
                 var from = int.Parse(match.Groups["from"].Value);
                 if (from < 1) throw new FormatException($"Page number must be >= 1 (got {from}).");
+                if (from > 50000) throw new FormatException("Page number cannot exceed 50,000.");
                 selectors.Add(new FromPageSelector(from));
             }
             else if (match.Groups["to"].Success)
             {
                 var to = int.Parse(match.Groups["to"].Value);
                 if (to < 1) throw new FormatException($"Page number must be >= 1 (got {to}).");
+                if (to > 50000) throw new FormatException("Page number cannot exceed 50,000.");
                 selectors.Add(new ToPageSelector(to));
             }
         }
@@ -115,16 +119,29 @@ public class PageRange
 
     private sealed class RangePageSelector(int start, int end) : IPageSelector
     {
-        public IEnumerable<int> GetPages(int totalPages) => Enumerable.Range(start, end - start + 1);
+        public IEnumerable<int> GetPages(int totalPages)
+        {
+            int s = Math.Max(1, start);
+            int e = Math.Min(totalPages, end);
+            return s <= e ? Enumerable.Range(s, e - s + 1) : [];
+        }
     }
 
     private sealed class FromPageSelector(int from) : IPageSelector
     {
-        public IEnumerable<int> GetPages(int totalPages) => from <= totalPages ? Enumerable.Range(from, totalPages - from + 1) : [];
+        public IEnumerable<int> GetPages(int totalPages)
+        {
+            int s = Math.Max(1, from);
+            return s <= totalPages ? Enumerable.Range(s, totalPages - s + 1) : [];
+        }
     }
 
     private sealed class ToPageSelector(int to) : IPageSelector
     {
-        public IEnumerable<int> GetPages(int totalPages) => Enumerable.Range(1, Math.Min(to, totalPages));
+        public IEnumerable<int> GetPages(int totalPages)
+        {
+            int e = Math.Min(to, totalPages);
+            return e >= 1 ? Enumerable.Range(1, e) : [];
+        }
     }
 }

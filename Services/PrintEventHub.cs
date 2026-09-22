@@ -1,9 +1,9 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Threading.Channels;
-using OhMyPrinter.Core.Abstractions;
-using OhMyPrinter.Core.Models;
+using Printman.Core.Abstractions;
+using Printman.Core.Models;
 
-namespace OhMyPrinter.Services;
+namespace Printman.Services;
 
 public class PrintEventHub : IPrintEventHub
 {

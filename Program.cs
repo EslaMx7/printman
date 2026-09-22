@@ -1,11 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
-using OhMyPrinter.CLI;
-using OhMyPrinter.Core.Abstractions;
-using OhMyPrinter.Interactive;
-using OhMyPrinter.Services;
-using OhMyPrinter.Services.Renderers;
+using Printman.CLI;
+using Printman.Core.Abstractions;
+using Printman.Interactive;
+using Printman.Services;
+using Printman.Services.Renderers;
 
-namespace OhMyPrinter;
+namespace Printman;
 
 public static class Program
 {
@@ -42,7 +42,7 @@ public static class Program
         catch (ArgumentException ex)
         {
             ConsoleUi.PrintError(ex.Message);
-            Console.WriteLine("Run 'ohmyprinter --help' for syntax and options.");
+            Console.WriteLine("Run 'printman --help' for syntax and options.");
             return 1;
         }
         catch (FormatException ex)
