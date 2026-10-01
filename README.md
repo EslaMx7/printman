@@ -1,5 +1,9 @@
 # Printman 🚀🖨️
 
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)]()
+
 A modern, high-performance, zero-dependency Windows CLI and mobile LAN printing platform built with .NET and native Windows WinRT APIs.
 
 > *"The platform for building, sending, and managing print requests."*
@@ -196,6 +200,17 @@ dotnet run -- list
 dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
 ```
 The published binary is available at `./publish/printman.exe`.
+
+---
+
+## 📄 License
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+
+## 🤝 Contributing
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started.
+
+## 🔒 Security
+For security concerns, please see [SECURITY.md](SECURITY.md) for our responsible disclosure policy.
 
 ---
 

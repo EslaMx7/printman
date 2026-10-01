@@ -19,3 +19,21 @@ $RECYCLE.BIN/
 *.xps
 *.pdf.tmp
 [Cc]ache/
+
+# Internal tooling
+.agents/
+
+# Secrets & credentials
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+secrets.json
+*.snk
+*.pfx
+
+# OS / editor
+.DS_Store
+*.swp
+*~

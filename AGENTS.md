@@ -72,8 +72,10 @@ Printman/
 │   └── InteractiveWizard.cs              # Step-by-step guided printing prompt
 ├── Printman.csproj              # Project configuration
 ├── Program.cs                   # Composition Root & DI configuration
-├── sample.txt                   # Sample test text file
-└── test_sample.pdf              # Sample 3-page test PDF
+└── tests/
+    └── fixtures/
+        ├── sample.txt           # Sample test text file
+        └── test_sample.pdf      # Sample 3-page test PDF
 ```
 
 ---
@@ -135,7 +137,7 @@ When verifying changes:
    ```powershell
    dotnet run -- list
    dotnet run -- info "HP Laser"
-   dotnet run -- "test_sample.pdf" -printer "XPS" -pages 1:2 -output "test.xps"
+   dotnet run -- "tests/fixtures/test_sample.pdf" -printer "XPS" -pages 1:2 -output "test.xps"
    ```
 4. **Publishing standalone binary:**
    ```powershell
