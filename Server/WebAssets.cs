@@ -1,696 +1,77 @@
+using System.Reflection;
+using System.Text;
+
 namespace Printman.Server;
 
 public static class WebAssets
 {
-    public const string IndexHtml = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Printman • Mobile Print Server</title>
-  <style>
-    :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #38bdf8;
-      --primary-hover: #0284c7;
-      --accent: #10b981;
-      --danger: #ef4444;
-      --warning: #f59e0b;
-      --radius: 14px;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; display: flex; justify-content: center; }
-    .container { width: 100%; max-width: 680px; display: flex; flex-direction: column; gap: 18px; }
+    private static readonly Lazy<string> CachedEmbeddedHtml = new(LoadEmbeddedHtml);
 
-    /* Header */
-    .header { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
-    .header-title { display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-weight: 700; color: var(--text); }
-    .header-icon { font-size: 1.6rem; }
-    .connection-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-    .connected { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .disconnected { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    /// <summary>
+    /// Gets the HTML content for the mobile web SPA.
+    /// In DEBUG mode, reads directly from disk if available to enable instant live-reload.
+    /// In Release or standalone binary mode, loads from the in-assembly embedded resource (cached).
+    /// </summary>
+    public static string IndexHtml
+    {
+        get
+        {
+#if DEBUG
+            // 1. Development live-reload: check workspace source paths
+            var devPaths = new[]
+            {
+                Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Server", "Web", "index.html")),
+                Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "Server", "Web", "index.html"))
+            };
 
-    /* Card */
-    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; }
-    .card-title { font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-
-    /* Upload Drop Zone */
-    .dropzone { border: 2px dashed #475569; border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.01); }
-    .dropzone:hover, .dropzone.dragover { border-color: var(--primary); background: rgba(56, 189, 248, 0.05); }
-    .dropzone-icon { font-size: 2.4rem; margin-bottom: 8px; }
-    .dropzone-text { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
-    .dropzone-hint { font-size: 0.8rem; color: var(--text-muted); }
-    #fileInput { display: none; }
-
-    /* Queue List */
-    .queue-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-    .queue-item { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 14px; border-radius: 10px; }
-    .queue-item-info { display: flex; align-items: center; gap: 12px; overflow: hidden; }
-    .file-icon { font-size: 1.4rem; }
-    .file-details { overflow: hidden; }
-    .file-name { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-    .file-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 2px; }
-    .badge { font-size: 0.68rem; padding: 2px 6px; border-radius: 6px; font-weight: 600; }
-    .badge-cached { background: rgba(56, 189, 248, 0.15); color: var(--primary); }
-    .badge-pages { background: rgba(16, 185, 129, 0.15); color: var(--accent); }
-    .btn-remove { background: none; border: none; color: var(--danger); font-size: 1.1rem; cursor: pointer; padding: 4px; border-radius: 6px; }
-
-    /* Form Controls */
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 480px) { .form-grid { grid-template-columns: 1fr; } }
-    .form-group { display: flex; flex-direction: column; gap: 6px; }
-    .form-group.full-width { grid-column: 1 / -1; }
-    label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
-    select, input { background: #0f172a; border: 1px solid var(--card-border); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; outline: none; width: 100%; }
-    select:focus, input:focus { border-color: var(--primary); }
-
-    /* Stepper */
-    .stepper { display: flex; align-items: center; border: 1px solid var(--card-border); border-radius: 8px; background: #0f172a; overflow: hidden; }
-    .stepper button { background: rgba(255,255,255,0.05); border: none; color: var(--text); width: 38px; height: 38px; font-size: 1.2rem; cursor: pointer; }
-    .stepper button:hover { background: rgba(255,255,255,0.1); }
-    .stepper input { border: none; text-align: center; width: 50px; padding: 0; background: transparent; font-weight: 600; }
-
-    /* Print Button */
-    .btn-primary { background: var(--primary); color: #0f172a; border: none; border-radius: var(--radius); padding: 14px; font-size: 1.05rem; font-weight: 700; cursor: pointer; width: 100%; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
-    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-
-    /* Live Activity Log */
-    .logs-container { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; padding-right: 4px; }
-    .log-item { display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); }
-    .log-time { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; min-width: 58px; margin-top: 1px; }
-    .log-msg { flex: 1; word-break: break-word; }
-    .log-progress { color: var(--primary); }
-    .log-completed { color: var(--accent); }
-    .log-error { color: var(--danger); }
-    .log-queued { color: var(--warning); }
-
-    /* Progress bar */
-    .progress-bar-wrap { height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-top: 6px; }
-    .progress-bar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease; }
-  </style>
-</head>
-<body>
-  <!-- PIN Authentication Modal (sec-01) -->
-  <div id="pinModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.94); backdrop-filter:blur(6px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
-    <div class="card" style="width:100%; max-width:380px; text-align:center; padding:26px 20px;">
-      <div style="font-size:2.4rem; margin-bottom:12px;">🔒</div>
-      <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:6px;">Server Authentication</h2>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:18px;">Enter the 6-digit PIN shown on the server console to connect:</p>
-      <input type="text" id="pinInput" maxlength="12" placeholder="PIN Code" style="text-align:center; font-size:1.4rem; letter-spacing:4px; font-weight:700; margin-bottom:12px;" autocomplete="off">
-      <div id="pinError" style="color:var(--danger); font-size:0.85rem; margin-bottom:12px; display:none;"></div>
-      <button type="button" class="btn-primary" onclick="verifyPin()">Unlock Server</button>
-    </div>
-  </div>
-
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-title">
-        <span class="header-icon">🖨️</span>
-        <span>Printman</span>
-      </div>
-      <div id="connBadge" class="connection-badge disconnected">
-        <span class="dot"></span>
-        <span id="connText">Connecting...</span>
-      </div>
-    </div>
-
-    <!-- Upload Section -->
-    <div class="card">
-      <div class="card-title">
-        <span>Upload Documents</span>
-        <span id="queueCount" style="font-size:0.8rem; color:var(--primary);">0 files</span>
-      </div>
-      
-      <div id="dropZone" class="dropzone">
-        <div class="dropzone-icon">📁</div>
-        <div class="dropzone-text">Tap to select or drop files here</div>
-        <div class="dropzone-hint">Supports PDF, PNG, JPG, BMP, TIFF, TXT, LOG, CSV (Max 50MB)</div>
-      </div>
-      <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.bmp,.gif,.tiff,.tif,.txt,.log,.csv,.json,.md">
-
-      <!-- Uploaded Files Queue -->
-      <div id="queueList" class="queue-list" style="display:none;"></div>
-    </div>
-
-    <!-- Print Settings Section -->
-    <div class="card">
-      <div class="card-title">Print Settings</div>
-      
-      <div class="form-grid">
-        <!-- Printer Selection -->
-        <div class="form-group full-width">
-          <label for="printerSelect">Target Printer</label>
-          <select id="printerSelect">
-            <option value="">Loading printers...</option>
-          </select>
-        </div>
-
-        <!-- Page Range -->
-        <div class="form-group">
-          <label for="pagesInput">Page Range</label>
-          <input type="text" id="pagesInput" placeholder="all (e.g. 1:3, 1,3,5)">
-        </div>
-
-        <!-- Paper Size -->
-        <div class="form-group">
-          <label for="paperSizeSelect">Paper Size</label>
-          <select id="paperSizeSelect">
-            <option value="">Printer Default</option>
-          </select>
-        </div>
-
-        <!-- Copies -->
-        <div class="form-group">
-          <label>Copies</label>
-          <div class="stepper">
-            <button type="button" onclick="adjustCopies(-1)">−</button>
-            <input type="text" id="copiesInput" value="1" readonly>
-            <button type="button" onclick="adjustCopies(1)">+</button>
-          </div>
-        </div>
-
-        <!-- Orientation -->
-        <div class="form-group">
-          <label for="orientationSelect">Orientation</label>
-          <select id="orientationSelect">
-            <option value="auto">Auto</option>
-            <option value="portrait">Portrait</option>
-            <option value="landscape">Landscape</option>
-          </select>
-        </div>
-
-        <!-- Duplex (Two-Sided) -->
-        <div class="form-group" id="duplexGroup">
-          <label for="duplexSelect">Duplex (Two-Sided)</label>
-          <select id="duplexSelect">
-            <option value="default">Default</option>
-            <option value="simplex">Simplex (Single-sided)</option>
-            <option value="vertical">Vertical (Long-edge)</option>
-            <option value="horizontal">Horizontal (Short-edge)</option>
-          </select>
-        </div>
-
-        <!-- Color Mode -->
-        <div class="form-group" id="colorGroup">
-          <label for="colorSelect">Color Mode</label>
-          <select id="colorSelect">
-            <option value="default">Default</option>
-            <option value="color">Color</option>
-            <option value="mono">Monochrome</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="margin-top:18px;">
-        <button id="printBtn" class="btn-primary" disabled onclick="submitPrintJobs()">
-          <span>🖨️</span>
-          <span id="printBtnText">Select Files to Print</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Live Activity & Status -->
-    <div class="card">
-      <div class="card-title">
-        <span>Live Print Activity (SSE)</span>
-        <span id="clearLogsBtn" style="font-size:0.75rem; cursor:pointer; color:var(--text-muted);" onclick="clearLogs()">Clear</span>
-      </div>
-      <div id="logsContainer" class="logs-container">
-        <div class="log-item">
-          <span class="log-time">--:--:--</span>
-          <span class="log-msg" style="color:var(--text-muted);">Waiting for print activity...</span>
-        </div>
-      </div>
-      <div class="progress-bar-wrap">
-        <div id="activeProgressBar" class="progress-bar"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // State
-    const state = {
-      printers: [],
-      uploadedFiles: [], // { fileId, fileName, fileSize, pageCount, isDuplicate }
-      isPrinting: false,
-      pin: null,
-      authRequired: true
-    };
-
-    // Elements
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const queueList = document.getElementById('queueList');
-    const queueCount = document.getElementById('queueCount');
-    const printerSelect = document.getElementById('printerSelect');
-    const paperSizeSelect = document.getElementById('paperSizeSelect');
-    const printBtn = document.getElementById('printBtn');
-    const printBtnText = document.getElementById('printBtnText');
-    const logsContainer = document.getElementById('logsContainer');
-    const activeProgressBar = document.getElementById('activeProgressBar');
-    const connBadge = document.getElementById('connBadge');
-    const connText = document.getElementById('connText');
-
-    // Headers generator (includes CSRF defense and PIN auth - sec-01, sec-04)
-    function getHeaders(contentType) {
-      const h = { 'X-Requested-With': 'Printman' };
-      if (contentType) h['Content-Type'] = contentType;
-      const pin = state.pin || localStorage.getItem('printman_pin');
-      if (pin) h['X-Printer-Pin'] = pin;
-      return h;
-    }
-
-    // Init
-    window.addEventListener('DOMContentLoaded', async () => {
-      initDropZone();
-
-      // Check URL query param ?pin=
-      const urlPin = new URLSearchParams(window.location.search).get('pin');
-      if (urlPin) {
-        localStorage.setItem('printman_pin', urlPin);
-        state.pin = urlPin;
-      } else {
-        state.pin = localStorage.getItem('printman_pin');
-      }
-
-      await checkAuthAndInit();
-    });
-
-    async function checkAuthAndInit() {
-      try {
-        const res = await fetch('/api/auth/status', { headers: getHeaders() });
-        const data = await res.json();
-        state.authRequired = data.required;
-
-        if (state.authRequired && !data.authenticated) {
-          if (state.pin) {
-            const ok = await submitPinVerification(state.pin);
-            if (ok) {
-              hidePinModal();
-              loadPrinters();
-              initSSE();
-              return;
+            foreach (var path in devPaths)
+            {
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        return File.ReadAllText(path, Encoding.UTF8);
+                    }
+                    catch
+                    {
+                        // Fall through to embedded resource if file is temporarily locked
+                    }
+                }
             }
-          }
-          showPinModal();
-          return;
+#endif
+            return CachedEmbeddedHtml.Value;
+        }
+    }
+
+    private static string LoadEmbeddedHtml()
+    {
+        var assembly = typeof(WebAssets).Assembly;
+        const string primaryResourceName = "Printman.Server.Web.index.html";
+
+        var stream = assembly.GetManifestResourceStream(primaryResourceName);
+        if (stream == null)
+        {
+            // Fallback: search manifest resource names ending with index.html
+            var resourceName = assembly.GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith("index.html", StringComparison.OrdinalIgnoreCase));
+
+            if (resourceName != null)
+            {
+                stream = assembly.GetManifestResourceStream(resourceName);
+            }
         }
 
-        hidePinModal();
-        loadPrinters();
-        initSSE();
-      } catch (err) {
-        console.error('Auth status check error:', err);
-        loadPrinters();
-        initSSE();
-      }
-    }
-
-    function showPinModal() {
-      const modal = document.getElementById('pinModal');
-      modal.style.display = 'flex';
-      const input = document.getElementById('pinInput');
-      input.focus();
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') verifyPin();
-      });
-    }
-
-    function hidePinModal() {
-      document.getElementById('pinModal').style.display = 'none';
-    }
-
-    async function verifyPin() {
-      const pinInput = document.getElementById('pinInput');
-      const pin = pinInput.value.trim();
-      if (!pin) return;
-      const ok = await submitPinVerification(pin);
-      if (ok) {
-        hidePinModal();
-        loadPrinters();
-        initSSE();
-      }
-    }
-
-    async function submitPinVerification(pinToVerify) {
-      const pinError = document.getElementById('pinError');
-      pinError.style.display = 'none';
-
-      try {
-        const res = await fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'Printman'
-          },
-          body: JSON.stringify({ pin: pinToVerify })
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          pinError.textContent = data.error || 'Invalid PIN. Check the server console.';
-          pinError.style.display = 'block';
-          return false;
+        if (stream == null)
+        {
+            throw new InvalidOperationException(
+                $"Embedded web asset resource '{primaryResourceName}' was not found in assembly '{assembly.FullName}'. " +
+                $"Available resources: {string.Join(", ", assembly.GetManifestResourceNames())}");
         }
 
-        state.pin = pinToVerify;
-        localStorage.setItem('printman_pin', pinToVerify);
-        return true;
-      } catch (err) {
-        pinError.textContent = 'Connection error: ' + err.message;
-        pinError.style.display = 'block';
-        return false;
-      }
-    }
-
-    // Printers
-    async function loadPrinters() {
-      try {
-        const res = await fetch('/api/printers', { headers: getHeaders() });
-        if (res.status === 401) {
-          showPinModal();
-          return;
+        using (stream)
+        {
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            return reader.ReadToEnd();
         }
-        state.printers = await res.json();
-        
-        printerSelect.innerHTML = '';
-        state.printers.forEach((p, idx) => {
-          const opt = document.createElement('option');
-          opt.value = p.name;
-          opt.textContent = `${p.name}${p.isDefault ? ' [DEFAULT]' : ''}`;
-          if (p.isDefault) opt.selected = true;
-          printerSelect.appendChild(opt);
-        });
-
-        updatePrinterCapabilities();
-      } catch (err) {
-        addLog('error', 'Failed to load printers from server: ' + err.message);
-      }
     }
-
-    printerSelect.addEventListener('change', updatePrinterCapabilities);
-
-    function updatePrinterCapabilities() {
-      const selectedName = printerSelect.value;
-      const printer = state.printers.find(p => p.name === selectedName);
-      if (!printer) return;
-
-      // Update paper sizes
-      paperSizeSelect.innerHTML = '<option value="">Printer Default</option>';
-      if (printer.supportedPaperSizes) {
-        printer.supportedPaperSizes.forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s.name;
-          opt.textContent = `${s.name} (${s.widthMm} x ${s.heightMm} mm)`;
-          paperSizeSelect.appendChild(opt);
-        });
-      }
-
-      // Duplex visibility
-      document.getElementById('duplexGroup').style.opacity = printer.canDuplex ? '1' : '0.4';
-      // Color visibility
-      document.getElementById('colorGroup').style.opacity = printer.supportsColor ? '1' : '0.4';
-    }
-
-    // Copies Stepper
-    function adjustCopies(delta) {
-      const input = document.getElementById('copiesInput');
-      let val = parseInt(input.value) || 1;
-      val = Math.max(1, Math.min(99, val + delta));
-      input.value = val;
-    }
-
-    // File Upload & Drag-and-Drop
-    function initDropZone() {
-      dropZone.addEventListener('click', () => fileInput.click());
-
-      ['dragenter', 'dragover'].forEach(evt => {
-        dropZone.addEventListener(evt, e => {
-          e.preventDefault();
-          dropZone.classList.add('dragover');
-        });
-      });
-
-      ['dragleave', 'drop'].forEach(evt => {
-        dropZone.addEventListener(evt, e => {
-          e.preventDefault();
-          dropZone.classList.remove('dragover');
-        });
-      });
-
-      dropZone.addEventListener('drop', e => {
-        if (e.dataTransfer.files.length) {
-          uploadFiles(e.dataTransfer.files);
-        }
-      });
-
-      fileInput.addEventListener('change', () => {
-        if (fileInput.files.length) {
-          uploadFiles(fileInput.files);
-        }
-      });
-    }
-
-    async function uploadFiles(files) {
-      for (const file of files) {
-        if (file.size > 50 * 1024 * 1024) {
-          addLog('error', `File '${file.name}' exceeds the 50 MB upload limit.`);
-          continue;
-        }
-
-        addLog('progress', `Uploading '${file.name}' (${formatBytes(file.size)})...`);
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            headers: getHeaders(),
-            body: formData
-          });
-
-          if (res.status === 401) {
-            showPinModal();
-            return;
-          }
-
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || err.detail || 'Upload failed');
-          }
-
-          const info = await res.json();
-          state.uploadedFiles.push(info);
-          renderQueue();
-
-          const cacheMsg = info.isDuplicate ? ' (Deduplicated with cache)' : ' (Cached)';
-          addLog('completed', `Uploaded '${info.fileName}' • ${info.pageCount} page(s)${cacheMsg}`);
-        } catch (err) {
-          addLog('error', `Failed to upload '${file.name}': ${err.message}`);
-        }
-      }
-      fileInput.value = '';
-    }
-
-    function removeFile(index) {
-      state.uploadedFiles.splice(index, 1);
-      renderQueue();
-    }
-
-    function renderQueue() {
-      queueCount.textContent = `${state.uploadedFiles.length} file(s)`;
-      if (state.uploadedFiles.length === 0) {
-        queueList.style.display = 'none';
-        queueList.innerHTML = '';
-        printBtn.disabled = true;
-        printBtnText.textContent = 'Select Files to Print';
-        return;
-      }
-
-      queueList.style.display = 'flex';
-      queueList.innerHTML = '';
-
-      state.uploadedFiles.forEach((f, idx) => {
-        const item = document.createElement('div');
-        item.className = 'queue-item';
-
-        const ext = f.extension ? f.extension.toLowerCase() : '';
-        const icon = ext === '.pdf' ? '📄' : (['.png','.jpg','.jpeg','.bmp','.gif'].includes(ext) ? '🖼️' : '📝');
-
-        item.innerHTML = `
-          <div class="queue-item-info">
-            <span class="file-icon">${icon}</span>
-            <div class="file-details">
-              <div class="file-name" title="${escapeHtml(f.fileName)}">${escapeHtml(f.fileName)}</div>
-              <div class="file-meta">
-                <span>${formatBytes(f.fileSize)}</span>
-                <span class="badge badge-pages">${f.pageCount} pg</span>
-                ${f.isDuplicate ? '<span class="badge badge-cached">Cached</span>' : ''}
-              </div>
-            </div>
-          </div>
-          <button type="button" class="btn-remove" onclick="removeFile(${idx})" title="Remove">✕</button>
-        `;
-        queueList.appendChild(item);
-      });
-
-      printBtn.disabled = state.isPrinting;
-      printBtnText.textContent = `Print ${state.uploadedFiles.length} Document(s)`;
-    }
-
-    // Submit Print Jobs
-    async function submitPrintJobs() {
-      if (state.uploadedFiles.length === 0 || state.isPrinting) return;
-
-      const printer = printerSelect.value;
-      if (!printer) {
-        alert('Please select a printer.');
-        return;
-      }
-
-      state.isPrinting = true;
-      printBtn.disabled = true;
-      printBtnText.textContent = 'Submitting print jobs...';
-      activeProgressBar.style.width = '10%';
-
-      const payload = {
-        printer: printer,
-        items: state.uploadedFiles.map(f => ({
-          fileId: f.fileId,
-          pages: document.getElementById('pagesInput').value.trim() || 'all',
-          paperSize: paperSizeSelect.value || null,
-          copies: parseInt(document.getElementById('copiesInput').value) || 1,
-          orientation: document.getElementById('orientationSelect').value,
-          duplex: document.getElementById('duplexSelect').value,
-          color: document.getElementById('colorSelect').value
-        }))
-      };
-
-      try {
-        const res = await fetch('/api/print', {
-          method: 'POST',
-          headers: getHeaders('application/json'),
-          body: JSON.stringify(payload)
-        });
-
-        if (res.status === 401) {
-          showPinModal();
-          state.isPrinting = false;
-          renderQueue();
-          return;
-        }
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || data.detail || 'Printing failed');
-        }
-
-        const queueNote = data.position > 1 ? ` (Queue position: ${data.position})` : '';
-        addLog('progress', `Print batch accepted by server (${payload.items.length} file(s))${queueNote}. Execution in progress...`);
-      } catch (err) {
-        addLog('error', 'Print submission error: ' + err.message);
-        state.isPrinting = false;
-        renderQueue();
-      }
-    }
-
-    // SSE (Server-Sent Events)
-    function initSSE() {
-      const pin = state.pin || localStorage.getItem('printman_pin');
-      const url = pin ? `/api/events?pin=${encodeURIComponent(pin)}` : '/api/events';
-      const evtSource = new EventSource(url);
-
-      evtSource.onopen = () => {
-        connBadge.className = 'connection-badge connected';
-        connText.textContent = 'Live SSE Connected';
-      };
-
-      evtSource.onerror = () => {
-        connBadge.className = 'connection-badge disconnected';
-        connText.textContent = 'Disconnected';
-      };
-
-      evtSource.onmessage = (e) => {
-        try {
-          const evt = JSON.parse(e.data);
-          handlePrintEvent(evt);
-        } catch (err) {
-          console.error('SSE parse error:', err);
-        }
-      };
-    }
-
-    function handlePrintEvent(evt) {
-      addLog(evt.type, evt.message);
-
-      if (evt.totalPages && evt.pagesPrinted) {
-        const pct = Math.round((evt.pagesPrinted / evt.totalPages) * 100);
-        activeProgressBar.style.width = `${pct}%`;
-      }
-
-      if (evt.type === 'completed') {
-        activeProgressBar.style.width = '100%';
-        setTimeout(() => { activeProgressBar.style.width = '0%'; }, 2000);
-        state.isPrinting = false;
-        renderQueue();
-      } else if (evt.type === 'error') {
-        activeProgressBar.style.width = '0%';
-        state.isPrinting = false;
-        renderQueue();
-      }
-    }
-
-    // Activity Log
-    function addLog(type, message) {
-      const now = new Date();
-      const timeStr = now.toTimeString().split(' ')[0];
-
-      const item = document.createElement('div');
-      item.className = 'log-item';
-      
-      let typeClass = 'log-progress';
-      let icon = 'ℹ️';
-      if (type === 'completed') { typeClass = 'log-completed'; icon = '✅'; }
-      else if (type === 'error') { typeClass = 'log-error'; icon = '❌'; }
-      else if (type === 'queued') { typeClass = 'log-queued'; icon = '⏳'; }
-
-      item.innerHTML = `
-        <span class="log-time">${timeStr}</span>
-        <span class="log-msg ${typeClass}">${icon} ${escapeHtml(message)}</span>
-      `;
-
-      logsContainer.prepend(item);
-      while (logsContainer.children.length > 50) {
-        logsContainer.removeChild(logsContainer.lastChild);
-      }
-    }
-
-    function clearLogs() {
-      logsContainer.innerHTML = '';
-      activeProgressBar.style.width = '0%';
-    }
-
-    function formatBytes(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    }
-
-    function escapeHtml(str) {
-      return (str || '').replace(/[&<>"']/g, m => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[m]));
-    }
-  </script>
-</body>
-</html>
-""";
 }

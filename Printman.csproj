@@ -16,4 +16,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Server\Web\**\*" />
+  </ItemGroup>
+
 </Project>

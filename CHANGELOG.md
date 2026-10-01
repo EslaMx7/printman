@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Extracted mobile web SPA to dedicated `Server/Web/index.html` file embedded directly into assembly binary via MSBuild `EmbeddedResource`.
+- Implemented in-memory cached loader in `Server/WebAssets.cs` with development live-reload support in `#if DEBUG`.
+
 ## [1.0.0] - 2026-10-01
 
 ### Added

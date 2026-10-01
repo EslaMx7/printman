@@ -170,7 +170,9 @@ Printman/
 │       └── TextDocumentRenderer.cs       # Pagination & layout
 ├── Server/                       # Embedded Kestrel LAN Web Server
 │   ├── PrintingWebServerHost.cs          # Minimal API routes & queue worker
-│   └── WebAssets.cs                      # Mobile-responsive web SPA & CSS/JS
+│   ├── WebAssets.cs                      # In-assembly embedded resource loader & live-reload
+│   └── Web/
+│       └── index.html                    # Mobile-responsive web SPA & CSS/JS
 ├── CLI/                          # Command-line interface layer
 │   ├── CommandLineParser.cs
 │   ├── ParsedArguments.cs

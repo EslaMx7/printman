@@ -156,7 +156,9 @@ Printman/
 │       └── TextDocumentRenderer.cs
 ├── Server/                      # Embedded Kestrel LAN Web Server
 │   ├── PrintingWebServerHost.cs
-│   └── WebAssets.cs
+│   ├── WebAssets.cs
+│   └── Web/
+│       └── index.html
 ├── CLI/                         # Command-Line Parser & Subcommand Dispatcher
 │   ├── ParsedArguments.cs
 │   ├── CommandLineParser.cs
