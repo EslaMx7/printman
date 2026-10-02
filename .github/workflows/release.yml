@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - release
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Determine Semantic Version
+        id: semver
+        shell: pwsh
+        run: |
+          git fetch --tags --force
+          $headTag = git tag --points-at HEAD "v*.*.*" | Select-Object -First 1
+          if ($headTag) {
+              $tag = $headTag
+              $version = $tag.TrimStart('v')
+              Write-Host "Reusing existing tag at HEAD: $tag"
+          } else {
+              $latestTag = git tag -l "v*.*.*" --sort=-v:refname | Select-Object -First 1
+              if (-not $latestTag) {
+                  $version = "1.0.0"
+              } else {
+                  $cleanTag = $latestTag.TrimStart('v')
+                  $parts = $cleanTag.Split('.')
+                  $major = [int]$parts[0]
+                  $minor = [int]$parts[1]
+                  $patch = [int]$parts[2]
+
+                  $commits = git log "$latestTag..HEAD" --oneline
+                  if ($commits -match "BREAKING CHANGE" -or $commits -match "^\w+!:") {
+                      $major++
+                      $minor = 0
+                      $patch = 0
+                  } elseif ($commits -match "feat(\(.*\))?:") {
+                      $minor++
+                      $patch = 0
+                  } else {
+                      $patch++
+                  }
+                  $version = "$major.$minor.$patch"
+              }
+              $tag = "v$version"
+          }
+
+          Write-Host "Target Version: $version"
+          Write-Host "Target Git Tag: $tag"
+          "VERSION=$version" >> $env:GITHUB_OUTPUT
+          "TAG=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Publish Standalone (Self-Contained Single File)
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.semver.outputs.VERSION }}"
+          dotnet publish -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:Version=$ver `
+            -o ./dist/standalone
+
+          Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone"
+          Compress-Archive -Path "./dist/standalone/*" -DestinationPath "./printman-v$ver-win-x64.zip" -Force
+
+      - name: Publish Portable (Framework-Dependent)
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.semver.outputs.VERSION }}"
+          dotnet publish -c Release -r win-x64 --self-contained false `
+            -p:Version=$ver `
+            -o ./dist/portable
+
+          Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/portable"
+          Compress-Archive -Path "./dist/portable/*" -DestinationPath "./printman-v$ver-win-x64-framework-dependent.zip" -Force
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ steps.semver.outputs.TAG }}"
+          $ver = "${{ steps.semver.outputs.VERSION }}"
+          $notes = @"
+          ## Printman $tag
+
+          ### Download Options
+          - **``printman-v$ver-win-x64.zip``** ⭐ **Recommended (Standalone)**:
+            Fully self-contained single executable. Includes the .NET runtime. Runs out of the box on Windows 10/11 with zero installation required.
+          - **``printman-v$ver-win-x64-framework-dependent.zip``** (Lightweight):
+            Smaller download for users and developers who already have the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) installed.
+          "@
+
+          gh release create $tag `
+            "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone - Recommended)" `
+            "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
+            --title "Printman $tag" `
+            --notes $notes `
+            --generate-notes

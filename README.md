@@ -157,20 +157,30 @@ The wizard prompts you step-by-step:
 
 ### Requirements
 - Windows 10 (1809+) or Windows 11
-- .NET 9 or .NET 10 SDK
+- .NET 10 SDK
 
-### Build & Run
+### Development Build
 ```powershell
 # Build the project
 dotnet build
 
-# Run the CLI
+# Run the CLI directly
 dotnet run -- list
-
-# Publish a single executable
-dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
 ```
-The final binary will be at `./publish/printman.exe`.
+
+### Publishing Releases
+
+#### Option A: Standalone Single Executable (Recommended)
+Bundles the .NET runtime into a single executable. Runs on any Windows 10/11 computer without installing .NET:
+```powershell
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish/standalone
+```
+
+#### Option B: Framework-Dependent (Lightweight)
+Creates a smaller binary package. Requires the target computer to have the .NET 10 Desktop Runtime installed:
+```powershell
+dotnet publish -c Release -r win-x64 --self-contained false -o ./publish/portable
+```
 
 ---
 
