@@ -1,14 +1,12 @@
-# Printman 🚀🖨️
+# Printman 🖨️
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)]()
 
-A modern, high-performance, zero-dependency Windows CLI and mobile LAN printing platform built with .NET and native Windows WinRT APIs.
+A small, zero-dependency Windows tool to print documents from your terminal, an interactive menu, or directly from your phone over local Wi-Fi.
 
-> *"The platform for building, sending, and managing print requests."*
-
-Architected following **SOLID principles** so that the underlying printing engine is seamlessly shared between the fast command-line tool, an interactive wizard, and an embedded mobile-first LAN web printing server.
+> *"A simple printing bridge for your Windows desk PC."*
 
 ---
 
@@ -35,196 +33,144 @@ Architected following **SOLID principles** so that the underlying printing engin
 
 ---
 
-## 🌟 Key Features
+## 🌟 What It Does
 
-- **Zero Third-Party Dependencies:** Uses built-in .NET SDK and native Windows APIs (`Windows.Data.Pdf` for vector PDF rasterization, `System.Drawing.Printing` for printer spooling and hardware controls).
-- **Multiple Document Formats:**
-  - **PDF Documents (`.pdf`):** High-resolution rasterization (300 DPI by default) with aspect-ratio scaling.
-  - **Images (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`):** Automatic scaling and orientation fitting.
-  - **Text / Code (`.txt`, `.log`, `.csv`, `.json`, `.md`, etc.):** Clean font layout with automatic line wrapping and pagination.
-- **Flexible Execution Modes:**
-  - **CLI Command Mode:** Pass arguments to print immediately in automated scripts or pipelines.
-  - **Interactive Wizard:** Run with no arguments to launch an interactive menu with guided prompts.
-  - **Mobile LAN Web Server (`serve`):** Instant browser-based printing for smartphones and other devices on the same Wi-Fi.
-- **Intelligent Printer Matching:** Fuzzy name search (e.g. `-printer "HP Laser"` resolves `"HP LaserJet Professional P1102"`).
-- **Full Printing Control:** Page range selection (`-pages 1:3`, `1-3`, `1,3,5`, `2-`), paper size preference (`-size A4`, `Letter`), copies (`-copies 2`), duplex (`-duplex vertical`), orientation (`-orientation landscape`), and color mode.
+- **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers.
+- **Prints Common Formats:** Handles PDF documents (crisp 300 DPI vector rendering), images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
+- **Phone-Ready Web UI:** Run `printman serve` to launch a mobile web page. Anyone on your home Wi-Fi can open it and print from their phone.
+- **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided terminal wizard.
+- **Smart Printer Search:** Type partial printer names. For example, `HP Laser` automatically finds `HP LaserJet Professional P1102`.
+- **Full Print Controls:** Set page ranges (e.g. `1:3`, `2,5`), paper sizes (`A4`, `Letter`), copies, orientation, duplex, and color mode.
 
 ---
 
-## 🚀 Quick Start & CLI Usage
+## 🚀 How to Use It
 
-### 1. Print Documents
+### 1. Quick Terminal Printing
 
 ```powershell
-# Print entire document to default printer
+# Print to your default printer
 printman.exe "./doc.pdf"
 
-# Print to a specific printer (fuzzy match)
+# Print to a specific printer (partial name search)
 printman.exe "./doc.pdf" -printer "HP Laser"
 
-# Print specific page range (e.g., pages 1 through 3)
+# Print specific pages (pages 1 to 3)
 printman.exe "./doc.pdf" -pages 1:3
 
-# Print with specific paper size
-printman.exe "./doc.pdf" -size A4
+# Print with custom paper size and two copies
+printman.exe "./doc.pdf" -size A4 -copies 2
 
-# Complete full-featured print job
-printman.exe "./invoice.pdf" -p "HP" -pages 1:2 -size A4 -copies 2 -duplex vertical -orientation portrait
+# Full print job with duplex and orientation
+printman.exe "./notes.pdf" -p "HP" -pages 1:2 -size A4 -copies 2 -duplex vertical -orientation portrait
 ```
 
-### 2. Printer Management Commands
+### 2. Printer Tools
 
 ```powershell
-# List all installed printers, status, default indicator, and capabilities
+# List all connected printers and their status
 printman.exe list
 
-# Show detailed printer specifications (paper sizes with mm dimensions, resolutions, duplex, etc.)
+# Show supported paper sizes and hardware details for a printer
 printman.exe info "HP LaserJet"
 
-# View CLI help and all supported flags
+# View all available CLI flags
 printman.exe help
 ```
 
-### 3. Mobile LAN Web Server (`serve` / `server`)
+### 3. Print from Your Phone (`serve`)
 
-Spin up a local web server to print from your smartphone or other devices on the same Wi-Fi:
+Start the local web server on your Windows PC:
 
 ```powershell
-# Start server with auto-generated pairing PIN on default port 5000
+# Start with an auto-generated 6-digit PIN
 printman.exe serve
 
-# Start server with a custom PIN
-printman.exe server --port 8080 --pin 123456
+# Start with a specific port and custom PIN
+printman.exe serve --port 8080 --pin 123456
 
-# Start server with open unauthenticated access (no PIN required)
+# Start without PIN protection (open home access)
 printman.exe serve --no-auth
-
-# Start server with custom upload and cache limits
-printman.exe serve --max-upload-mb 100 --cache-limit-mb 1000
 ```
 
-The console will display accessible URLs with the quick-auth PIN embedded:
-```
+Your console displays a local link with your PIN:
+```text
   [WEB SERVER RUNNING]  Port: 5000
   [SECURITY] PIN Protected:  849201
 
-  Access from this machine or your phone on the same Wi-Fi:
-    Local:    http://localhost:5000/?pin=849201
-    Network:  http://192.168.1.50:5000/?pin=849201
+  Open this link on your phone (same Wi-Fi):
+    http://192.168.1.50:5000/?pin=849201
 ```
-- **Mobile-friendly UI:** Responsive SPA with light/dark theme (auto OS detection + manual toggle), drag & drop, multi-file queue, printer picker, paper size, copies, duplex, and color mode.
-- **PIN Pairing & Authentication:** Protects physical printers from unauthorized network access. Mobile clients connect with one tap via the banner URL or enter the 6-digit PIN into the web interface.
-- **Intranet CSRF Defense:** Enforces origin checks and custom headers (`X-Requested-With: Printman`) to prevent malicious websites from issuing drive-by print requests.
-- **Serialized Spooler Queue:** In-memory queue worker serializes print jobs one by one to prevent Windows Print Spooler race conditions and collisions.
-- **Storage Limits & LRU Cache Eviction:** Enforces 50 MB single-file upload limits and an aggregate cache quota (default 500 MB) with automatic LRU eviction.
-- **Fast File Deduplication:** Uploads are hashed (SHA-256) into `cache/`; duplicate files are instantly recognized without redundant disk writes.
-- **Live Real-Time Feedback:** Server-Sent Events (SSE) stream progress and queue position directly to connected devices without WebSockets.
 
-### 4. Interactive Wizard
+**Mobile Web Features:**
+- **Clean Mobile UI:** Works directly in Safari, Chrome, or any mobile browser. Includes light and dark themes.
+- **Simple PIN Lock:** Protects your printer from unintended network access.
+- **Print Queue:** Sends jobs one by one so the Windows spooler never locks up.
+- **Automatic Storage Cleanup:** Keeps uploaded files in a local cache and clears old files automatically.
+- **Live Progress:** Shows print progress on your phone in real time.
 
-Run without arguments (or with `interactive`):
+### 4. Interactive Guided Wizard
+
+If you do not want to remember CLI commands, run `printman` without arguments:
+
 ```powershell
 printman.exe
 ```
-This guides you through file path selection (supports drag-and-drop), selecting from installed printers, choosing page ranges, paper size, duplex, and displays a review summary before sending the job to the spooler.
+
+The wizard prompts you step-by-step:
+1. Select or drag-and-drop your file.
+2. Choose from a list of installed printers.
+3. Select page ranges, paper size, and copies.
+4. Review your settings and send the job.
 
 ---
 
 ## ⚙️ CLI Options Reference
 
-### Printing Options
+### Print Flags
 | Option | Aliases | Description | Example |
 | :--- | :--- | :--- | :--- |
-| `-printer` | `-p`, `--printer` | Target printer name or substring | `-p "HP Laser"` |
-| `-pages` | `--pages` | Page range or discrete pages | `-pages 1:3`, `-pages 2,5` |
-| `-size` | `-s`, `--size` | Paper size preference | `-size A4`, `-size Letter` |
+| `-printer` | `-p`, `--printer` | Target printer name or partial match | `-p "HP Laser"` |
+| `-pages` | `--pages` | Page range or individual pages | `-pages 1:3`, `-pages 2,5` |
+| `-size` | `-s`, `--size` | Paper size name | `-size A4`, `-size Letter` |
 | `-copies` | `-c`, `--copies` | Number of copies | `-copies 2` |
 | `-orientation` | `-o`, `--orientation` | Orientation: `portrait`, `landscape`, `auto` | `-o landscape` |
 | `-duplex` | `-d`, `--duplex` | Duplex mode: `simplex`, `vertical`, `horizontal` | `-d vertical` |
 | `-color` | `--color` | Color mode: `color`, `mono` | `-color mono` |
-| `-dpi` | `--dpi` | Rasterization resolution for PDF/images | `-dpi 300` |
-| `-fit` | `-nofit` | Fit to printable page margins (default: true) | `-fit` |
-| `-output` | `-out`, `--output` | Print to file (for virtual printers like PDF/XPS) | `-output "out.xps"` |
+| `-dpi` | `--dpi` | Resolution for PDF rendering (default: 300) | `-dpi 300` |
+| `-fit` | `-nofit` | Fit content to printable area (default: true) | `-fit` |
+| `-output` | `-out`, `--output` | Print to file (for virtual printers like XPS/PDF) | `-output "out.xps"` |
 
-### Web Server Options (`serve` / `server`)
+### Web Server Flags (`serve`)
 | Option | Description | Default |
 | :--- | :--- | :--- |
-| `--port`, `-p` | Port number for Kestrel HTTP listener | `5000` |
-| `--ip`, `--bind` | Bind network IP address | `0.0.0.0` |
-| `--pin` | Custom pairing PIN for mobile access | Auto-generated 6-digit PIN |
-| `--no-auth` | Disable PIN authentication (open LAN access) | Disabled |
-| `--max-upload-mb`| Maximum single file upload size (MB) | `50` |
-| `--cache-limit-mb`| Maximum total file cache storage (MB) with LRU eviction | `500` |
+| `--port`, `-p` | Local port number | `5000` |
+| `--ip`, `--bind` | Network binding address | `0.0.0.0` |
+| `--pin` | Custom access PIN for mobile devices | Auto-generated 6-digit PIN |
+| `--no-auth` | Disable PIN protection | Disabled |
+| `--max-upload-mb`| Maximum file upload size in MB | `50` |
+| `--cache-limit-mb`| Maximum disk cache size in MB before cleanup | `500` |
 
 ---
 
-## 🏛️ Architecture & SOLID Design
+## 🔨 How to Build
 
-The codebase is partitioned into distinct layers:
-
-```
-Printman/
-├── Core/
-│   ├── Abstractions/             # ISP / DIP contracts
-│   │   ├── IPrinterDiscoveryService.cs   # Printer query and fuzzy matching
-│   │   ├── IDocumentRenderer.cs          # Pluggable rendering strategy
-│   │   ├── IDocumentRendererResolver.cs  # Renderer resolution
-│   │   ├── IPrintJobValidator.cs         # Request validation
-│   │   ├── IFileCacheService.cs          # Content-addressed hashing & LRU cache
-│   │   ├── IPrintEventHub.cs             # SSE streaming abstraction
-│   │   └── IPrintService.cs              # Core print orchestration
-│   └── Models/                   # Plain models / DTOs
-│       ├── PrintJobRequest.cs
-│       ├── PrintJobResult.cs
-│       ├── PrinterInfo.cs
-│       ├── PaperSizeOption.cs
-│       ├── ServerModels.cs
-│       └── PageRange.cs
-├── Services/                     # Concrete business logic implementations
-│   ├── WindowsPrinterDiscoveryService.cs
-│   ├── PrintJobValidator.cs
-│   ├── DocumentRendererResolver.cs
-│   ├── FileCacheService.cs
-│   ├── PrintEventHub.cs
-│   ├── WindowsPrintService.cs
-│   └── Renderers/
-│       ├── PdfDocumentRenderer.cs        # WinRT Windows.Data.Pdf
-│       ├── ImageDocumentRenderer.cs      # System.Drawing.Image
-│       └── TextDocumentRenderer.cs       # Pagination & layout
-├── Server/                       # Embedded Kestrel LAN Web Server
-│   ├── PrintingWebServerHost.cs          # Minimal API routes & queue worker
-│   ├── WebAssets.cs                      # In-assembly embedded resource loader & live-reload
-│   └── Web/
-│       └── index.html                    # Mobile-responsive web SPA & CSS/JS
-├── CLI/                          # Command-line interface layer
-│   ├── CommandLineParser.cs
-│   ├── ParsedArguments.cs
-│   └── CliHandler.cs
-└── Interactive/                  # Console UI & Interactive Wizard
-    ├── ConsoleUi.cs
-    └── InteractiveWizard.cs
-```
-
----
-
-## 🔨 Building from Source
-
-### Prerequisites
+### Requirements
 - Windows 10 (1809+) or Windows 11
 - .NET 9 or .NET 10 SDK
 
 ### Build & Run
 ```powershell
-# Build
+# Build the project
 dotnet build
 
-# Run CLI command
+# Run the CLI
 dotnet run -- list
 
-# Publish standalone executable
+# Publish a single executable
 dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
 ```
-The published binary is available at `./publish/printman.exe`.
+The final binary will be at `./publish/printman.exe`.
 
 ---
 
@@ -232,12 +178,9 @@ The published binary is available at `./publish/printman.exe`.
 This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
 
 ## 🤝 Contributing
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started.
-
-## 🔒 Security
-For security concerns, please see [SECURITY.md](SECURITY.md) for our responsible disclosure policy.
+Feedback and small fixes are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
 
-## 🤖 Agent Instructions & Roadmap
-For AI coding assistants and contributors, detailed architecture rules, SOLID boundaries, and security protocols are documented in [AGENTS.md](AGENTS.md).
+## 🤖 Agent Instructions
+For AI coding assistants and contributors, architectural constraints and operational rules are documented in [AGENTS.md](AGENTS.md).
