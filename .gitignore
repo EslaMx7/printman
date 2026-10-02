@@ -21,7 +21,8 @@ $RECYCLE.BIN/
 [Cc]ache/
 
 # Internal tooling
-.agents/
+.agents/*
+!.agents/skills/
 
 # Secrets & credentials
 .env

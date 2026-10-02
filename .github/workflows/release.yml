@@ -65,6 +65,58 @@ jobs:
           "VERSION=$version" >> $env:GITHUB_OUTPUT
           "TAG=$tag" >> $env:GITHUB_OUTPUT
 
+      - name: Extract Changelog
+        id: changelog
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.semver.outputs.VERSION }}"
+          $changelog = ""
+          if (Test-Path "CHANGELOG.md") {
+              $lines = Get-Content "CHANGELOG.md"
+              $targetTag = "[$ver]"
+              $capturing = $false
+              $section = [System.Collections.Generic.List[string]]::new()
+
+              foreach ($l in $lines) {
+                  if ($l.Contains($targetTag)) {
+                      $capturing = $true
+                      continue
+                  }
+                  if ($capturing -and $l.StartsWith("## [")) {
+                      break
+                  }
+                  if ($capturing) {
+                      $section.Add($l)
+                  }
+              }
+
+              if ($section.Count -eq 0) {
+                  $capturing = $false
+                  foreach ($l in $lines) {
+                      if ($l.Contains("[Unreleased]")) {
+                          $capturing = $true
+                          continue
+                      }
+                      if ($capturing -and $l.StartsWith("## [")) {
+                          break
+                      }
+                      if ($capturing) {
+                          $section.Add($l)
+                      }
+                  }
+              }
+              $changelog = ($section -join "`n").Trim()
+          }
+
+          if (-not $changelog) {
+              $changelog = "Maintenance release and operational updates."
+          }
+
+          # Write changelog to a temporary file to preserve multiline formatting cleanly
+          $changelog | Out-File -FilePath "./release_changelog.md" -Encoding utf8
+          Write-Host "Extracted Changelog:"
+          Write-Host $changelog
+
       - name: Publish Standalone (Self-Contained Single File)
         shell: pwsh
         run: |
@@ -95,8 +147,15 @@ jobs:
         run: |
           $tag = "${{ steps.semver.outputs.TAG }}"
           $ver = "${{ steps.semver.outputs.VERSION }}"
-          $notes = @"
+          $changelogText = Get-Content "./release_changelog.md" -Raw
+
+          $releaseNotes = @"
           ## Printman $tag
+
+          ### What's Changed
+          $changelogText
+
+          ---
 
           ### Download Options
           - **``printman-v$ver-win-x64.zip``** ⭐ **Recommended (Standalone)**:
@@ -109,5 +168,5 @@ jobs:
             "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone - Recommended)" `
             "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
             --title "Printman $tag" `
-            --notes $notes `
+            --notes $releaseNotes `
             --generate-notes
