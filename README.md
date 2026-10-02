@@ -89,7 +89,7 @@ The console will display accessible URLs with the quick-auth PIN embedded:
     Local:    http://localhost:5000/?pin=849201
     Network:  http://192.168.1.50:5000/?pin=849201
 ```
-- **Mobile-friendly UI:** Responsive SPA with drag & drop, multi-file queue, printer picker, paper size, copies, duplex, and color mode.
+- **Mobile-friendly UI:** Responsive SPA with light/dark theme (auto OS detection + manual toggle), drag & drop, multi-file queue, printer picker, paper size, copies, duplex, and color mode.
 - **PIN Pairing & Authentication:** Protects physical printers from unauthorized network access. Mobile clients connect with one tap via the banner URL or enter the 6-digit PIN into the web interface.
 - **Intranet CSRF Defense:** Enforces origin checks and custom headers (`X-Requested-With: Printman`) to prevent malicious websites from issuing drive-by print requests.
 - **Serialized Spooler Queue:** In-memory queue worker serializes print jobs one by one to prevent Windows Print Spooler race conditions and collisions.

@@ -4,102 +4,233 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Printman • Mobile Print Server</title>
+  <script>
+    (function() {
+      try {
+        const theme = localStorage.getItem('printman_theme') || 'system';
+        const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #38bdf8;
-      --primary-hover: #0284c7;
-      --accent: #10b981;
-      --danger: #ef4444;
+      --background: #ffffff;
+      --foreground: #0a0a0a;
+      --card: #ffffff;
+      --card-foreground: #0a0a0a;
+      --popover: #ffffff;
+      --popover-foreground: #0a0a0a;
+      --primary: #171717;
+      --primary-foreground: #fafafa;
+      --secondary: #f5f5f5;
+      --secondary-foreground: #171717;
+      --muted: #f5f5f5;
+      --muted-foreground: #737373;
+      --accent: #f5f5f5;
+      --accent-foreground: #171717;
+      --destructive: #e7000b;
+      --destructive-foreground: #ffffff;
+      --border: #e5e5e5;
+      --input: #e5e5e5;
+      --ring: #a1a1a1;
+      --radius: 0.625rem;
+      --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+      --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+      --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+      --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      
+      --chart-1: #91c5ff;
+      --chart-2: #3a81f6;
+      --chart-3: #2563ef;
+      --chart-4: #1a4eda;
+      --chart-5: #1f3fad;
+
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --success-border: rgba(16, 185, 129, 0.25);
       --warning: #f59e0b;
-      --radius: 14px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; display: flex; justify-content: center; }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]):not(.light) {
+        --background: #0a0a0a;
+        --foreground: #fafafa;
+        --card: #171717;
+        --card-foreground: #fafafa;
+        --popover: #262626;
+        --popover-foreground: #fafafa;
+        --primary: #e5e5e5;
+        --primary-foreground: #171717;
+        --secondary: #262626;
+        --secondary-foreground: #fafafa;
+        --muted: #262626;
+        --muted-foreground: #a1a1a1;
+        --accent: #404040;
+        --accent-foreground: #fafafa;
+        --destructive: #ff6467;
+        --destructive-foreground: #fafafa;
+        --border: #282828;
+        --input: #343434;
+        --ring: #737373;
+
+        --chart-1: #91c5ff;
+        --chart-2: #3a81f6;
+        --chart-3: #2563ef;
+        --chart-4: #1a4eda;
+        --chart-5: #1f3fad;
+
+        --success: #34d399;
+        --success-bg: rgba(52, 211, 153, 0.15);
+        --success-border: rgba(52, 211, 153, 0.3);
+        --warning: #fbbf24;
+      }
+    }
+
+    .dark {
+      --background: #0a0a0a;
+      --foreground: #fafafa;
+      --card: #171717;
+      --card-foreground: #fafafa;
+      --popover: #262626;
+      --popover-foreground: #fafafa;
+      --primary: #e5e5e5;
+      --primary-foreground: #171717;
+      --secondary: #262626;
+      --secondary-foreground: #fafafa;
+      --muted: #262626;
+      --muted-foreground: #a1a1a1;
+      --accent: #404040;
+      --accent-foreground: #fafafa;
+      --destructive: #ff6467;
+      --destructive-foreground: #fafafa;
+      --border: #282828;
+      --input: #343434;
+      --ring: #737373;
+
+      --chart-1: #91c5ff;
+      --chart-2: #3a81f6;
+      --chart-3: #2563ef;
+      --chart-4: #1a4eda;
+      --chart-5: #1f3fad;
+
+      --success: #34d399;
+      --success-bg: rgba(52, 211, 153, 0.15);
+      --success-border: rgba(52, 211, 153, 0.3);
+      --warning: #fbbf24;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-sans); }
+    body { background: var(--background); color: var(--foreground); padding: 16px; min-height: 100vh; display: flex; justify-content: center; -webkit-font-smoothing: antialiased; }
     .container { width: 100%; max-width: 680px; display: flex; flex-direction: column; gap: 18px; }
 
     /* Header */
-    .header { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
-    .header-title { display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-weight: 700; color: var(--text); }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+    .header-title { display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-weight: 700; color: var(--foreground); }
     .header-icon { font-size: 1.6rem; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    /* Theme Switcher */
+    .theme-toggle {
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .theme-toggle:hover { background: var(--accent); border-color: var(--ring); }
+
+    /* Connection Badge */
     .connection-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-    .connected { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .disconnected { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .connected { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+    .disconnected { background: rgba(231, 0, 11, 0.12); color: var(--destructive); border: 1px solid rgba(231, 0, 11, 0.25); }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
     /* Card */
-    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 18px; }
-    .card-title { font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-sm); }
+    .card-title { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted-foreground); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
 
     /* Upload Drop Zone */
-    .dropzone { border: 2px dashed #475569; border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.01); }
-    .dropzone:hover, .dropzone.dragover { border-color: var(--primary); background: rgba(56, 189, 248, 0.05); }
+    .dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: var(--secondary); }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--ring); background: var(--accent); }
     .dropzone-icon { font-size: 2.4rem; margin-bottom: 8px; }
-    .dropzone-text { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
-    .dropzone-hint { font-size: 0.8rem; color: var(--text-muted); }
+    .dropzone-text { font-size: 0.95rem; font-weight: 600; color: var(--foreground); margin-bottom: 4px; }
+    .dropzone-hint { font-size: 0.8rem; color: var(--muted-foreground); }
     #fileInput { display: none; }
 
     /* Queue List */
     .queue-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-    .queue-item { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 10px 14px; border-radius: 10px; }
+    .queue-item { display: flex; align-items: center; justify-content: space-between; background: var(--secondary); border: 1px solid var(--border); padding: 10px 14px; border-radius: calc(var(--radius) - 2px); }
     .queue-item-info { display: flex; align-items: center; gap: 12px; overflow: hidden; }
     .file-icon { font-size: 1.4rem; }
     .file-details { overflow: hidden; }
-    .file-name { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
-    .file-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 2px; }
-    .badge { font-size: 0.68rem; padding: 2px 6px; border-radius: 6px; font-weight: 600; }
-    .badge-cached { background: rgba(56, 189, 248, 0.15); color: var(--primary); }
-    .badge-pages { background: rgba(16, 185, 129, 0.15); color: var(--accent); }
-    .btn-remove { background: none; border: none; color: var(--danger); font-size: 1.1rem; cursor: pointer; padding: 4px; border-radius: 6px; }
+    .file-name { font-size: 0.9rem; font-weight: 600; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+    .file-meta { font-size: 0.75rem; color: var(--muted-foreground); display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+    .badge { font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+    .badge-cached { background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--border); }
+    .badge-pages { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+    .btn-remove { background: none; border: none; color: var(--destructive); font-size: 1.1rem; cursor: pointer; padding: 4px; border-radius: 6px; transition: opacity 0.15s; }
+    .btn-remove:hover { opacity: 0.7; }
 
     /* Form Controls */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 480px) { .form-grid { grid-template-columns: 1fr; } }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     .form-group.full-width { grid-column: 1 / -1; }
-    label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
-    select, input { background: #0f172a; border: 1px solid var(--card-border); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; outline: none; width: 100%; }
-    select:focus, input:focus { border-color: var(--primary); }
+    label { font-size: 0.8rem; font-weight: 600; color: var(--muted-foreground); }
+    select, input { background: var(--background); border: 1px solid var(--input); color: var(--foreground); padding: 10px 12px; border-radius: calc(var(--radius) - 2px); font-size: 0.9rem; outline: none; width: 100%; transition: border-color 0.15s, box-shadow 0.15s; }
+    select:focus, input:focus { border-color: var(--ring); box-shadow: 0 0 0 2px var(--border); }
 
     /* Stepper */
-    .stepper { display: flex; align-items: center; border: 1px solid var(--card-border); border-radius: 8px; background: #0f172a; overflow: hidden; }
-    .stepper button { background: rgba(255,255,255,0.05); border: none; color: var(--text); width: 38px; height: 38px; font-size: 1.2rem; cursor: pointer; }
-    .stepper button:hover { background: rgba(255,255,255,0.1); }
-    .stepper input { border: none; text-align: center; width: 50px; padding: 0; background: transparent; font-weight: 600; }
+    .stepper { display: flex; align-items: center; border: 1px solid var(--input); border-radius: calc(var(--radius) - 2px); background: var(--background); overflow: hidden; }
+    .stepper button { background: var(--secondary); border: none; color: var(--secondary-foreground); width: 38px; height: 38px; font-size: 1.2rem; cursor: pointer; transition: background 0.15s; }
+    .stepper button:hover { background: var(--accent); }
+    .stepper input { border: none; text-align: center; width: 50px; padding: 0; background: transparent; font-weight: 600; color: var(--foreground); box-shadow: none !important; }
 
     /* Print Button */
-    .btn-primary { background: var(--primary); color: #0f172a; border: none; border-radius: var(--radius); padding: 14px; font-size: 1.05rem; font-weight: 700; cursor: pointer; width: 100%; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); border: 1px solid transparent; border-radius: var(--radius); padding: 13px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; transition: opacity 0.15s, transform 0.05s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: var(--shadow-sm); }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+    .btn-primary:active:not(:disabled) { transform: scale(0.99); }
     .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* Live Activity Log */
-    .logs-container { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; padding-right: 4px; }
-    .log-item { display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); }
-    .log-time { color: var(--text-muted); font-family: monospace; font-size: 0.72rem; min-width: 58px; margin-top: 1px; }
-    .log-msg { flex: 1; word-break: break-word; }
-    .log-progress { color: var(--primary); }
-    .log-completed { color: var(--accent); }
-    .log-error { color: var(--danger); }
-    .log-queued { color: var(--warning); }
+    .logs-container { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; padding: 10px; background: var(--secondary); border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); }
+    .log-item { display: flex; align-items: flex-start; gap: 10px; font-size: 0.82rem; padding: 6px 10px; border-radius: 6px; background: var(--card); border: 1px solid var(--border); }
+    .log-time { color: var(--muted-foreground); font-family: var(--font-mono); font-size: 0.72rem; min-width: 58px; margin-top: 1px; }
+    .log-msg { flex: 1; word-break: break-word; color: var(--foreground); }
+    .log-progress { color: var(--chart-2); font-weight: 500; }
+    .log-completed { color: var(--success); font-weight: 500; }
+    .log-error { color: var(--destructive); font-weight: 500; }
+    .log-queued { color: var(--warning); font-weight: 500; }
 
     /* Progress bar */
-    .progress-bar-wrap { height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+    .progress-bar-wrap { height: 4px; background: var(--muted); border-radius: 4px; overflow: hidden; margin-top: 6px; }
     .progress-bar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease; }
   </style>
 </head>
 <body>
   <!-- PIN Authentication Modal (sec-01) -->
-  <div id="pinModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.94); backdrop-filter:blur(6px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
-    <div class="card" style="width:100%; max-width:380px; text-align:center; padding:26px 20px;">
+  <div id="pinModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="width:100%; max-width:380px; text-align:center; padding:26px 20px; box-shadow:var(--shadow-md);">
       <div style="font-size:2.4rem; margin-bottom:12px;">🔒</div>
-      <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:6px;">Server Authentication</h2>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:18px;">Enter the 6-digit PIN shown on the server console to connect:</p>
-      <input type="text" id="pinInput" maxlength="12" placeholder="PIN Code" style="text-align:center; font-size:1.4rem; letter-spacing:4px; font-weight:700; margin-bottom:12px;" autocomplete="off">
-      <div id="pinError" style="color:var(--danger); font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+      <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:6px; color:var(--foreground);">Server Authentication</h2>
+      <p style="font-size:0.85rem; color:var(--muted-foreground); margin-bottom:18px;">Enter the 6-digit PIN shown on the server console to connect:</p>
+      <input type="text" id="pinInput" maxlength="12" placeholder="PIN Code" style="text-align:center; font-size:1.4rem; letter-spacing:4px; font-weight:700; margin-bottom:12px; font-family:var(--font-mono);" autocomplete="off">
+      <div id="pinError" style="color:var(--destructive); font-size:0.85rem; margin-bottom:12px; display:none;"></div>
       <button type="button" class="btn-primary" onclick="verifyPin()">Unlock Server</button>
     </div>
   </div>
@@ -111,9 +242,15 @@
         <span class="header-icon">🖨️</span>
         <span>Printman</span>
       </div>
-      <div id="connBadge" class="connection-badge disconnected">
-        <span class="dot"></span>
-        <span id="connText">Connecting...</span>
+      <div class="header-actions">
+        <button id="themeToggleBtn" class="theme-toggle" onclick="cycleTheme()" title="Theme: System (Auto)">
+          <span id="themeIcon">💻</span>
+          <span id="themeLabel">Auto</span>
+        </button>
+        <div id="connBadge" class="connection-badge disconnected">
+          <span class="dot"></span>
+          <span id="connText">Connecting...</span>
+        </div>
       </div>
     </div>
 
@@ -121,7 +258,7 @@
     <div class="card">
       <div class="card-title">
         <span>Upload Documents</span>
-        <span id="queueCount" style="font-size:0.8rem; color:var(--primary);">0 files</span>
+        <span id="queueCount" style="font-size:0.8rem; color:var(--chart-2); font-weight:600;">0 files</span>
       </div>
       
       <div id="dropZone" class="dropzone">
@@ -216,12 +353,12 @@
     <div class="card">
       <div class="card-title">
         <span>Live Print Activity (SSE)</span>
-        <span id="clearLogsBtn" style="font-size:0.75rem; cursor:pointer; color:var(--text-muted);" onclick="clearLogs()">Clear</span>
+        <span id="clearLogsBtn" style="font-size:0.75rem; cursor:pointer; color:var(--muted-foreground);" onclick="clearLogs()">Clear</span>
       </div>
       <div id="logsContainer" class="logs-container">
         <div class="log-item">
           <span class="log-time">--:--:--</span>
-          <span class="log-msg" style="color:var(--text-muted);">Waiting for print activity...</span>
+          <span class="log-msg" style="color:var(--muted-foreground);">Waiting for print activity...</span>
         </div>
       </div>
       <div class="progress-bar-wrap">
@@ -231,6 +368,51 @@
   </div>
 
   <script>
+    // Theme Management (Auto / Light / Dark)
+    const themeModes = ['system', 'light', 'dark'];
+    function cycleTheme() {
+      const current = localStorage.getItem('printman_theme') || 'system';
+      const next = themeModes[(themeModes.indexOf(current) + 1) % themeModes.length];
+      setTheme(next);
+    }
+
+    function setTheme(theme) {
+      localStorage.setItem('printman_theme', theme);
+      applyTheme(theme);
+    }
+
+    function applyTheme(theme) {
+      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', isDark);
+      document.documentElement.setAttribute('data-theme', theme);
+
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+      const btn = document.getElementById('themeToggleBtn');
+      if (icon && label) {
+        if (theme === 'system') {
+          icon.textContent = '💻';
+          label.textContent = 'Auto';
+          if (btn) btn.title = 'Theme: System (Auto) - Click to change';
+        } else if (theme === 'light') {
+          icon.textContent = '☀️';
+          label.textContent = 'Light';
+          if (btn) btn.title = 'Theme: Light - Click to change';
+        } else {
+          icon.textContent = '🌙';
+          label.textContent = 'Dark';
+          if (btn) btn.title = 'Theme: Dark - Click to change';
+        }
+      }
+    }
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      const current = localStorage.getItem('printman_theme') || 'system';
+      if (current === 'system') {
+        applyTheme('system');
+      }
+    });
+
     // State
     const state = {
       printers: [],
@@ -265,6 +447,9 @@
 
     // Init
     window.addEventListener('DOMContentLoaded', async () => {
+      // Sync theme button label
+      applyTheme(localStorage.getItem('printman_theme') || 'system');
+
       initDropZone();
 
       // Check URL query param ?pin=

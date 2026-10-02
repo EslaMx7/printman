@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Light and dark theme support with automatic OS preference detection, manual toggle control, and persistent preference.
+
 ### Changed
+- Modernized web SPA design tokens with clean card, input, elevation, and typography styling.
 - Extracted mobile web SPA to dedicated `Server/Web/index.html` file embedded directly into assembly binary via MSBuild `EmbeddedResource`.
 - Implemented in-memory cached loader in `Server/WebAssets.cs` with development live-reload support in `#if DEBUG`.
 
