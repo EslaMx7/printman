@@ -1,4 +1,4 @@
-﻿namespace Printman.Core.Models;
+namespace Printman.Core.Models;
 
 public enum PrintOrientation
 {
@@ -29,5 +29,9 @@ public enum CliCommandType
     PrinterInfo,
     Help,
     Interactive,
-    Server
+    Server,
+    Queue,
+    CancelJob,
+    PurgeQueue
 }
+

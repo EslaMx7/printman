@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace Printman.Core.Models;
 
@@ -99,3 +99,31 @@ public class PinVerifyRequest
     [JsonPropertyName("pin")]
     public string? Pin { get; init; }
 }
+
+public class CancelJobRequest
+{
+    [JsonPropertyName("printer")]
+    public string? Printer { get; init; }
+
+    [JsonPropertyName("jobId")]
+    public required string JobId { get; init; }
+}
+
+public class PurgeQueueRequest
+{
+    [JsonPropertyName("printer")]
+    public required string Printer { get; init; }
+}
+
+public class QueueResponse
+{
+    [JsonPropertyName("printer")]
+    public string? Printer { get; init; }
+
+    [JsonPropertyName("status")]
+    public PrinterStatusInfo? Status { get; init; }
+
+    [JsonPropertyName("jobs")]
+    public List<PrintJobInfo> Jobs { get; init; } = [];
+}
+

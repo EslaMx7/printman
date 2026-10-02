@@ -108,6 +108,96 @@ public static class ConsoleUi
         Console.WriteLine();
     }
 
+    public static void PrintPrinterStatus(PrinterStatusInfo status)
+    {
+        Console.WriteLine();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.Write($"[PRINTER STATUS] {status.PrinterName}: ");
+        if (status.HasError || !status.IsOnline || status.IsPaperJam || status.IsOutOfPaper)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+        }
+        else if (status.IsPaused)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+        }
+        else if (status.IsBusy)
+        {
+            Console.ForegroundColor = ConsoleColor.Blue;
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+        }
+        Console.WriteLine(status.StatusText);
+        Console.ResetColor();
+        Console.WriteLine($"Jobs in spooler: {status.QueuedJobCount}");
+    }
+
+    public static void PrintQueueTable(IReadOnlyList<PrintJobInfo> jobs, PrinterStatusInfo? status = null)
+    {
+        if (status != null)
+        {
+            PrintPrinterStatus(status);
+        }
+
+        Console.WriteLine();
+        if (jobs.Count == 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Print queue is empty. No jobs are currently pending or printing.");
+            Console.ResetColor();
+            Console.WriteLine();
+            return;
+        }
+
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.WriteLine("{0,-9} {1,-28} {2,-18} {3,-10} {4,-15} {5,-10}", "Job ID", "Document", "Status", "Pages", "Printer", "Submitted");
+        Console.WriteLine(new string('-', 96));
+        Console.ResetColor();
+
+        foreach (var job in jobs)
+        {
+            string idStr = job.IsPrintmanPipelineJob ? "Spooling" : $"#{job.JobId}";
+            string pagesStr = job.TotalPages > 0 ? $"{job.PagesPrinted}/{job.TotalPages}" : $"{job.PagesPrinted}";
+
+            switch (job.StatusCode)
+            {
+                case PrintJobStatusCode.Printing:
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    break;
+                case PrintJobStatusCode.Spooling:
+                case PrintJobStatusCode.Queued:
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    break;
+                case PrintJobStatusCode.Paused:
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    break;
+                case PrintJobStatusCode.Error:
+                case PrintJobStatusCode.PaperJam:
+                case PrintJobStatusCode.PaperOut:
+                case PrintJobStatusCode.Offline:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    break;
+                default:
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    break;
+            }
+
+            Console.WriteLine(
+                "{0,-9} {1,-28} {2,-18} {3,-10} {4,-15} {5,-10}",
+                idStr,
+                Truncate(job.DocumentName, 27),
+                Truncate(job.StatusDescription, 17),
+                pagesStr,
+                Truncate(job.PrinterName, 14),
+                job.SubmittedAt.ToString("HH:mm:ss"));
+
+            Console.ResetColor();
+        }
+        Console.WriteLine();
+    }
+
     public static void PrintHelp()
     {
         ShowBanner();
@@ -123,6 +213,9 @@ COMMANDS:
                                          --no-auth (disable PIN requirement),
                                          --max-upload-mb <n> (default: 50),
                                          --cache-limit-mb <n> (default: 500)
+  queue, q [printer] [--watch]  Inspect real-time Windows Spooler & pipeline queue
+  cancel <job-id> [-p <name>]   Cancel a specific print job by ID
+  purge [printer]               Purge / cancel all jobs on a printer queue
   list, -list, --list           List all installed printers and their status
   info <printer-name>           Show details & supported paper sizes for a printer
   interactive, -i               Launch the interactive printing wizard

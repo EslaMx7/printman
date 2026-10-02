@@ -71,6 +71,7 @@ public static class Program
         // Core business logic & validation
         services.AddTransient<IPrintJobValidator, PrintJobValidator>();
         services.AddTransient<IPrintService, WindowsPrintService>();
+        services.AddSingleton<IPrintQueueService, WindowsPrintQueueService>();
 
         // Web Server, fast cache, and SSE services
         services.AddSingleton<IFileCacheService, FileCacheService>();

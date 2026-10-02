@@ -40,10 +40,13 @@ Printman/
 │   │   ├── IPrintJobValidator.cs        # Pre-execution request validation
 │   │   ├── IFileCacheService.cs         # Content-addressed hashing & LRU cache
 │   │   ├── IPrintEventHub.cs            # SSE streaming abstraction
+│   │   ├── IPrintQueueService.cs        # Spooler & pipeline queue management
 │   │   └── IPrintService.cs             # Print orchestration and spooling
 │   └── Models/                  # Pure data structures / DTOs
 │       ├── PrintJobRequest.cs           # Agnostic print job payload
 │       ├── PrintJobResult.cs            # Outcome status, counts, error messages
+│       ├── PrintJobInfo.cs              # Spooler & pipeline job metadata
+│       ├── PrinterStatusInfo.cs         # Real-time hardware status flags
 │       ├── PrinterInfo.cs               # Printer metadata, paper sizes, duplex
 │       ├── PaperSizeOption.cs           # Name, width/height mm
 │       ├── ServerModels.cs              # Web upload, batch print, and SSE event payloads
@@ -51,6 +54,7 @@ Printman/
 │       └── PrintEnums.cs                # Orientation, Duplex, ColorMode
 ├── Services/                    # Concrete implementations
 │   ├── WindowsPrinterDiscoveryService.cs # System.Drawing.Printing discovery
+│   ├── WindowsPrintQueueService.cs       # winspool.drv native spooler & pipeline manager
 │   ├── PrintJobValidator.cs              # Validates paths, pages, and capabilities
 │   ├── DocumentRendererResolver.cs       # Extension-based resolver
 │   ├── FileCacheService.cs               # SHA-256 disk cache & LRU quota manager
@@ -122,6 +126,10 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
      - `POST /api/auth/verify` -> Verify PIN and obtain session cookie/token.
      - `GET /api/printers` -> JSON list of installed printers.
      - `GET /api/printers/{name}` -> JSON details of a specific printer.
+      - `GET /api/printers/{name}/status` -> Real-time hardware status flags (Paper Jam, Out of Paper, Offline, Busy, Paused).
+      - `GET /api/queue` -> Real-time unified spooler & pipeline queue snapshot (?printer=<name>).
+      - `POST /api/queue/cancel` -> Cancels a specific job by integer ID or pipeline ID.
+      - `POST /api/queue/purge` -> Bulk purge/cancels all jobs on a printer queue.
      - `POST /api/upload` -> Multipart file upload with fast hash deduplication & page count discovery.
      - `POST /api/print` -> Submits batch print request; enqueues into serialized print worker with live SSE progress.
      - `GET /api/events` -> SSE event stream (`text/event-stream`).

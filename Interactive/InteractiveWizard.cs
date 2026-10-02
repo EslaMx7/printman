@@ -1,4 +1,4 @@
-﻿using Printman.Core.Abstractions;
+using Printman.Core.Abstractions;
 using Printman.Core.Models;
 
 namespace Printman.Interactive;
@@ -7,12 +7,14 @@ public class InteractiveWizard(
     IPrinterDiscoveryService printerDiscovery,
     IPrintService printService,
     IDocumentRendererResolver rendererResolver,
-    Server.PrintingWebServerHost webServer)
+    Server.PrintingWebServerHost webServer,
+    IPrintQueueService queueService)
 {
     private readonly IPrinterDiscoveryService _printerDiscovery = printerDiscovery;
     private readonly IPrintService _printService = printService;
     private readonly IDocumentRendererResolver _rendererResolver = rendererResolver;
     private readonly Server.PrintingWebServerHost _webServer = webServer;
+    private readonly IPrintQueueService _queueService = queueService;
 
     public async Task RunAsync()
     {
@@ -27,9 +29,10 @@ public class InteractiveWizard(
             Console.WriteLine("  [1] Print a Document (PDF, Image, Text)");
             Console.WriteLine("  [2] List Installed Printers");
             Console.WriteLine("  [3] Inspect Printer Details");
-            Console.WriteLine("  [4] Start Mobile LAN Web Server");
-            Console.WriteLine("  [5] Exit");
-            Console.Write("\nSelect an option [1-5] (default 1): ");
+            Console.WriteLine("  [4] View & Manage Print Spooler Queue");
+            Console.WriteLine("  [5] Start Mobile LAN Web Server");
+            Console.WriteLine("  [6] Exit");
+            Console.Write("\nSelect an option [1-6] (default 1): ");
 
             var input = Console.ReadLine()?.Trim();
             if (string.IsNullOrEmpty(input)) input = "1";
@@ -46,13 +49,16 @@ public class InteractiveWizard(
                     ShowPrinterDetails();
                     break;
                 case "4":
+                    await ManageQueueAsync();
+                    break;
+                case "5":
                     await StartWebServerAsync();
                     break;
-                case "5" or "q" or "exit":
+                case "6" or "q" or "exit":
                     Console.WriteLine("Goodbye!");
                     return;
                 default:
-                    ConsoleUi.PrintWarning("Invalid option. Please enter 1, 2, 3, 4, or 5.");
+                    ConsoleUi.PrintWarning("Invalid option. Please enter 1, 2, 3, 4, 5, or 6.");
                     break;
             }
         }
@@ -344,6 +350,193 @@ public class InteractiveWizard(
         else
         {
             ConsoleUi.PrintError($"Printing failed: {result.ErrorMessage}");
+        }
+    }
+
+    private async Task ManageQueueAsync()
+    {
+        var defaultPrinter = _printerDiscovery.GetDefaultPrinter();
+        string targetPrinter = defaultPrinter?.Name ?? "Default";
+
+        while (true)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("--- Print Spooler Queue Management ---");
+            Console.ResetColor();
+            Console.WriteLine($"Selected Printer: {targetPrinter}");
+            Console.WriteLine("  [1] Live Watcher Dashboard (Real-time auto-refresh, cancel hotkeys)");
+            Console.WriteLine("  [2] View Current Spooler Queue Snapshot");
+            Console.WriteLine("  [3] Cancel a Print Job by ID");
+            Console.WriteLine("  [4] Purge All Jobs on Printer");
+            Console.WriteLine("  [5] Select Different Printer to Inspect");
+            Console.WriteLine("  [6] Return to Main Menu");
+            Console.Write("\nSelect an option [1-6] (default 1): ");
+
+            var input = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(input)) input = "1";
+
+            switch (input)
+            {
+                case "1":
+                    await RunLiveQueueWatcherAsync(targetPrinter);
+                    break;
+                case "2":
+                    ShowQueueSnapshot(targetPrinter);
+                    break;
+                case "3":
+                    CancelJobPrompt(targetPrinter);
+                    break;
+                case "4":
+                    PurgeQueuePrompt(targetPrinter);
+                    break;
+                case "5":
+                    var selected = PromptSelectPrinter();
+                    if (selected != null) targetPrinter = selected.Name;
+                    break;
+                case "6" or "q" or "exit":
+                    return;
+                default:
+                    ConsoleUi.PrintWarning("Invalid option. Please enter 1 to 6.");
+                    break;
+            }
+        }
+    }
+
+    private PrinterInfo? PromptSelectPrinter()
+    {
+        var printers = _printerDiscovery.GetPrinters();
+        if (printers.Count == 0)
+        {
+            ConsoleUi.PrintError("No printers installed on this machine.");
+            return null;
+        }
+
+        ConsoleUi.PrintPrintersTable(printers);
+        var defaultPrinter = _printerDiscovery.GetDefaultPrinter();
+        Console.Write($"Select printer [1-{printers.Count}] (Enter for '{defaultPrinter?.Name}'): ");
+        var input = Console.ReadLine()?.Trim();
+        if (string.IsNullOrEmpty(input)) return defaultPrinter ?? printers[0];
+
+        if (int.TryParse(input, out int idx) && idx >= 1 && idx <= printers.Count)
+        {
+            return printers[idx - 1];
+        }
+
+        var found = _printerDiscovery.FindPrinter(input);
+        if (found != null) return found;
+
+        ConsoleUi.PrintWarning("Invalid printer selection. Keeping current printer.");
+        return null;
+    }
+
+    private async Task RunLiveQueueWatcherAsync(string printerName)
+    {
+        try { Console.Clear(); } catch { }
+        using var cts = new CancellationTokenSource();
+
+        Console.WriteLine($"Starting Live Queue Watcher for '{printerName}'...");
+        Console.WriteLine("Press [C] to Cancel Job • [A] to Purge All • [Q] or [Esc] to Return\n");
+
+        while (!cts.IsCancellationRequested)
+        {
+            try
+            {
+                var jobs = _queueService.GetJobs(printerName);
+                var status = _queueService.GetPrinterStatus(printerName);
+
+                try { Console.Clear(); } catch { }
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("================================================================================");
+                Console.WriteLine($" PRINTMAN LIVE SPOOLER WATCHER — {DateTime.Now:HH:mm:ss}");
+                Console.WriteLine("================================================================================");
+                Console.ResetColor();
+
+                ConsoleUi.PrintQueueTable(jobs, status);
+
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("Controls: [C] Cancel a Job  |  [A] Purge All Queue  |  [Q] Exit Watcher");
+                Console.ResetColor();
+
+                for (int i = 0; i < 10; i++)
+                {
+                    if (Console.KeyAvailable)
+                    {
+                        var key = Console.ReadKey(intercept: true);
+                        if (key.Key is ConsoleKey.Q or ConsoleKey.Escape)
+                        {
+                            return;
+                        }
+                        if (key.Key is ConsoleKey.C)
+                        {
+                            Console.WriteLine();
+                            CancelJobPrompt(printerName);
+                            break;
+                        }
+                        if (key.Key is ConsoleKey.A)
+                        {
+                            Console.WriteLine();
+                            PurgeQueuePrompt(printerName);
+                            break;
+                        }
+                    }
+                    await Task.Delay(100, cts.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Watcher error: {ex.Message}");
+                await Task.Delay(1000);
+            }
+        }
+    }
+
+    private void ShowQueueSnapshot(string printerName)
+    {
+        var jobs = _queueService.GetJobs(printerName);
+        var status = _queueService.GetPrinterStatus(printerName);
+        ConsoleUi.PrintQueueTable(jobs, status);
+    }
+
+    private void CancelJobPrompt(string printerName)
+    {
+        Console.Write("Enter Job ID to cancel: ");
+        var jobId = Console.ReadLine()?.Trim();
+        if (string.IsNullOrWhiteSpace(jobId))
+        {
+            ConsoleUi.PrintWarning("No Job ID entered.");
+            return;
+        }
+
+        bool success = _queueService.CancelJob(printerName, jobId);
+        if (success)
+        {
+            ConsoleUi.PrintSuccess($"Job '{jobId}' cancellation requested.");
+        }
+        else
+        {
+            ConsoleUi.PrintError($"Failed to cancel job '{jobId}'. Verify the ID and try again.");
+        }
+    }
+
+    private void PurgeQueuePrompt(string printerName)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.Write($"Are you sure you want to PURGE all print jobs for '{printerName}'? [y/N]: ");
+        Console.ResetColor();
+        var confirm = Console.ReadLine()?.Trim().ToLowerInvariant();
+        if (confirm is "y" or "yes")
+        {
+            int purged = _queueService.PurgeSpoolerQueue(printerName);
+            ConsoleUi.PrintSuccess($"Purged {purged} job(s) from '{printerName}'.");
+        }
+        else
+        {
+            ConsoleUi.PrintInfo("Purge cancelled.");
         }
     }
 }

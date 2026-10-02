@@ -131,6 +131,99 @@ public static class CommandLineParser
             return result;
         }
 
+        if (firstArg.Equals("queue", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("q", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("jobs", StringComparison.OrdinalIgnoreCase))
+        {
+            result.Command = CliCommandType.Queue;
+            for (int j = 1; j < args.Length; j++)
+            {
+                var qArg = args[j].Trim();
+                if (qArg.Equals("--watch", StringComparison.OrdinalIgnoreCase) ||
+                    qArg.Equals("-w", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.WatchQueue = true;
+                }
+                else if (qArg.StartsWith("-printer", StringComparison.OrdinalIgnoreCase) ||
+                         qArg.StartsWith("--printer", StringComparison.OrdinalIgnoreCase) ||
+                         qArg.StartsWith("-p", StringComparison.OrdinalIgnoreCase))
+                {
+                    int eq = qArg.IndexOf('=');
+                    if (eq > 0)
+                    {
+                        result.TargetPrinterName = qArg[(eq + 1)..].Trim('"', '\'');
+                    }
+                    else if (j + 1 < args.Length)
+                    {
+                        result.TargetPrinterName = args[++j].Trim('"', '\'');
+                    }
+                }
+                else if (!qArg.StartsWith('-') && string.IsNullOrWhiteSpace(result.TargetPrinterName))
+                {
+                    result.TargetPrinterName = qArg.Trim('"', '\'');
+                }
+            }
+            return result;
+        }
+
+        if (firstArg.Equals("cancel", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("abort", StringComparison.OrdinalIgnoreCase))
+        {
+            result.Command = CliCommandType.CancelJob;
+            for (int j = 1; j < args.Length; j++)
+            {
+                var cArg = args[j].Trim();
+                if (cArg.StartsWith("-printer", StringComparison.OrdinalIgnoreCase) ||
+                    cArg.StartsWith("--printer", StringComparison.OrdinalIgnoreCase) ||
+                    cArg.StartsWith("-p", StringComparison.OrdinalIgnoreCase))
+                {
+                    int eq = cArg.IndexOf('=');
+                    if (eq > 0)
+                    {
+                        result.TargetPrinterName = cArg[(eq + 1)..].Trim('"', '\'');
+                    }
+                    else if (j + 1 < args.Length)
+                    {
+                        result.TargetPrinterName = args[++j].Trim('"', '\'');
+                    }
+                }
+                else if (!cArg.StartsWith('-') && string.IsNullOrWhiteSpace(result.JobId))
+                {
+                    result.JobId = cArg.Trim('"', '\'');
+                }
+            }
+            return result;
+        }
+
+        if (firstArg.Equals("purge", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("clear-queue", StringComparison.OrdinalIgnoreCase))
+        {
+            result.Command = CliCommandType.PurgeQueue;
+            for (int j = 1; j < args.Length; j++)
+            {
+                var pArg = args[j].Trim();
+                if (pArg.StartsWith("-printer", StringComparison.OrdinalIgnoreCase) ||
+                    pArg.StartsWith("--printer", StringComparison.OrdinalIgnoreCase) ||
+                    pArg.StartsWith("-p", StringComparison.OrdinalIgnoreCase))
+                {
+                    int eq = pArg.IndexOf('=');
+                    if (eq > 0)
+                    {
+                        result.TargetPrinterName = pArg[(eq + 1)..].Trim('"', '\'');
+                    }
+                    else if (j + 1 < args.Length)
+                    {
+                        result.TargetPrinterName = args[++j].Trim('"', '\'');
+                    }
+                }
+                else if (!pArg.StartsWith('-') && string.IsNullOrWhiteSpace(result.TargetPrinterName))
+                {
+                    result.TargetPrinterName = pArg.Trim('"', '\'');
+                }
+            }
+            return result;
+        }
+
         // Otherwise, assume it's a Print command with flags and/or a file path
         result.Command = CliCommandType.Print;
 

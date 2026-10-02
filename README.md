@@ -38,6 +38,8 @@ A small, zero-dependency Windows tool to print documents from your terminal, an 
 - **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers.
 - **Prints Common Formats:** Handles PDF documents (crisp 300 DPI vector rendering), images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
 - **Phone-Ready Web UI:** Run `printman serve` to launch a mobile web page. Anyone on your home Wi-Fi can open it and print from their phone.
+- **Live Spooler & Hardware Diagnostics:** Interrogates the native Windows Spooler and hardware status flags in real time (Paper Jam, Out of Paper, Offline, Door Open, Busy, Paused).
+- **Duplicate Prevention & Queue Control:** Proactively warns before submitting duplicate print jobs when jobs are pending/stuck; allows canceling individual jobs or purging all jobs in one click.
 - **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided terminal wizard.
 - **Smart Printer Search:** Type partial printer names. For example, `HP Laser` automatically finds `HP LaserJet Professional P1102`.
 - **Full Print Controls:** Set page ranges (e.g. `1:3`, `2,5`), paper sizes (`A4`, `Letter`), copies, orientation, duplex, and color mode.
@@ -65,7 +67,7 @@ printman.exe "./doc.pdf" -size A4 -copies 2
 printman.exe "./notes.pdf" -p "HP" -pages 1:2 -size A4 -copies 2 -duplex vertical -orientation portrait
 ```
 
-### 2. Printer Tools
+### 2. Printer & Spooler Queue Tools
 
 ```powershell
 # List all connected printers and their status
@@ -74,7 +76,19 @@ printman.exe list
 # Show supported paper sizes and hardware details for a printer
 printman.exe info "HP LaserJet"
 
-# View all available CLI flags
+# View the real-time Windows Print Spooler queue
+printman.exe queue
+
+# Continuous live watcher dashboard for a specific printer
+printman.exe queue "HP Laser" --watch
+
+# Cancel a stuck or unwanted print job by its Job ID
+printman.exe cancel 12
+
+# Purge and clear all pending/stuck jobs on a printer queue
+printman.exe purge "HP Laser"
+
+# View all available CLI flags and commands
 printman.exe help
 ```
 
@@ -105,9 +119,13 @@ Your console displays a local link with your PIN:
 **Mobile Web Features:**
 - **Clean Mobile UI:** Works directly in Safari, Chrome, or any mobile browser. Includes light and dark themes.
 - **Simple PIN Lock:** Protects your printer from unintended network access.
-- **Print Queue:** Sends jobs one by one so the Windows spooler never locks up.
-- **Automatic Storage Cleanup:** Keeps uploaded files in a local cache and clears old files automatically.
-- **Live Progress:** Shows print progress on your phone in real time.
+- **Live Spooler Queue & Progress:** Dual-tab bottom panel (`Live Spooler Queue` and `Activity Log`) with live job progress, status badges, and single-click job cancellation.
+- **Duplicate Prevention Safeguard:** Alerts and asks for confirmation before sending a file that is already pending or printing on that printer.
+- **Automatic Upload Clearing:** Clears sent files from the selection immediately upon submission so users never accidentally tap "Print" twice.
+- **Emergency Queue Purge:** Prominent `Purge All Jobs` button to flush a jammed spooler queue instantly.
+- **Hardware Diagnostics:** Displays real-time printer status badges (Online, Paper Jam, Out of Paper, Offline, Paused).
+- **Serialized Print Pipeline:** Sends jobs one-by-one so Windows GDI+/spooler race conditions never occur.
+- **Automatic Storage Cleanup:** Fast SHA-256 caching with automatic LRU cleanup for old uploads.
 
 ### 4. Interactive Guided Wizard
 
@@ -118,14 +136,27 @@ printman.exe
 ```
 
 The wizard prompts you step-by-step:
-1. Select or drag-and-drop your file.
-2. Choose from a list of installed printers.
-3. Select page ranges, paper size, and copies.
-4. Review your settings and send the job.
+1. Print a document (drag & drop, printer picker, page selection, duplex/color options).
+2. List installed printers.
+3. Inspect detailed printer capabilities and paper sizes.
+4. View & manage the Print Spooler Queue (live terminal watcher with `[C]` cancel and `[A]` purge shortcuts).
+5. Start the mobile LAN web server.
 
 ---
 
 ## ⚙️ CLI Options Reference
+
+### Commands
+| Command | Aliases | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `serve` | `server`, `--serve` | Start local LAN mobile web server | `printman serve --port 5000` |
+| `queue` | `q`, `jobs` | Inspect spooler & pipeline queue (`--watch` for live dashboard) | `printman queue "HP" --watch` |
+| `cancel`| `abort` | Cancel a print job by its integer Job ID | `printman cancel 14` |
+| `purge` | `clear-queue` | Purge / clear all jobs on a printer queue | `printman purge "HP Laser"` |
+| `list`  | `-list`, `--list` | List all installed printers | `printman list` |
+| `info`  | `-info`, `--info` | Inspect printer capabilities & paper trays | `printman info "HP Laser"` |
+| `interactive` | `-i` | Launch terminal guided wizard | `printman -i` |
+| `help`  | `-h`, `--help` | Show command reference | `printman help` |
 
 ### Print Flags
 | Option | Aliases | Description | Example |

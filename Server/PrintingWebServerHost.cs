@@ -22,13 +22,15 @@ public class PrintingWebServerHost(
     IPrintService printService,
     IDocumentRendererResolver rendererResolver,
     IFileCacheService fileCache,
-    IPrintEventHub eventHub)
+    IPrintEventHub eventHub,
+    IPrintQueueService queueService)
 {
     private readonly IPrinterDiscoveryService _printerDiscovery = printerDiscovery;
     private readonly IPrintService _printService = printService;
     private readonly IDocumentRendererResolver _rendererResolver = rendererResolver;
     private readonly IFileCacheService _fileCache = fileCache;
     private readonly IPrintEventHub _eventHub = eventHub;
+    private readonly IPrintQueueService _queueService = queueService;
 
     public Task<int> RunAsync(int port, string bindAddress, CancellationToken ct) =>
         RunAsync(port, bindAddress, pin: null, requireAuth: true, maxUploadMb: 50, cacheLimitMb: 500, ct);
@@ -98,6 +100,39 @@ public class PrintingWebServerHost(
                 }
             }
             catch (OperationCanceledException) { }
+        }, ct);
+
+        // 4. Background Spooler Queue Observer
+        _ = Task.Run(async () =>
+        {
+            int lastJobCount = -1;
+            string lastStatusSummary = "";
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(1500, ct);
+
+                    var jobs = _queueService.GetJobs();
+                    int currentCount = jobs.Count;
+                    string statusSummary = currentCount > 0
+                        ? string.Join(";", jobs.Select(j => $"{j.JobId}:{j.StatusCode}:{j.PagesPrinted}"))
+                        : "0";
+
+                    if (currentCount != lastJobCount || statusSummary != lastStatusSummary)
+                    {
+                        lastJobCount = currentCount;
+                        lastStatusSummary = statusSummary;
+                        _eventHub.Publish(new PrintEvent
+                        {
+                            Type = "queue_updated",
+                            Message = $"Queue updated ({currentCount} active job(s))."
+                        });
+                    }
+                }
+                catch (OperationCanceledException) { break; }
+                catch { }
+            }
         }, ct);
 
         // Authentication and CSRF helper checks (sec-01, sec-04)
@@ -390,6 +425,69 @@ public class PrintingWebServerHost(
             }
         });
 
+        // 8. Queue Inspection and Management
+        app.MapGet("/api/queue", (string? printer) =>
+        {
+            var targetPrinter = !string.IsNullOrWhiteSpace(printer)
+                ? _printerDiscovery.FindPrinter(printer)?.Name ?? printer
+                : _printerDiscovery.GetDefaultPrinter()?.Name;
+
+            var jobs = _queueService.GetJobs(targetPrinter);
+            var status = !string.IsNullOrWhiteSpace(targetPrinter) ? _queueService.GetPrinterStatus(targetPrinter) : null;
+            return Results.Ok(new QueueResponse
+            {
+                Printer = targetPrinter,
+                Status = status,
+                Jobs = jobs.ToList()
+            });
+        });
+
+        app.MapGet("/api/printers/{name}/status", (string name) =>
+        {
+            var status = _queueService.GetPrinterStatus(name);
+            return Results.Ok(status);
+        });
+
+        app.MapPost("/api/queue/cancel", (CancelJobRequest req) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.JobId))
+            {
+                return Results.BadRequest(new { error = "Job ID must be specified." });
+            }
+
+            bool cancelled = _queueService.CancelJob(req.Printer, req.JobId);
+            _eventHub.Publish(new PrintEvent
+            {
+                Type = "queue_updated",
+                Printer = req.Printer,
+                Message = cancelled
+                    ? $"Job '{req.JobId}' cancellation requested."
+                    : $"Failed to cancel job '{req.JobId}'."
+            });
+
+            return cancelled
+                ? Results.Ok(new { success = true, message = $"Job '{req.JobId}' cancellation requested." })
+                : Results.BadRequest(new { success = false, error = $"Job '{req.JobId}' could not be cancelled." });
+        });
+
+        app.MapPost("/api/queue/purge", (PurgeQueueRequest req) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.Printer))
+            {
+                return Results.BadRequest(new { error = "Printer name must be specified." });
+            }
+
+            int purged = _queueService.PurgeSpoolerQueue(req.Printer);
+            _eventHub.Publish(new PrintEvent
+            {
+                Type = "queue_updated",
+                Printer = req.Printer,
+                Message = $"Purged {purged} job(s) from '{req.Printer}'."
+            });
+
+            return Results.Ok(new { success = true, purged });
+        });
+
         // Show start banner in console
         ConsoleUi.ShowBanner();
         Console.ForegroundColor = ConsoleColor.Green;
@@ -517,8 +615,28 @@ public class PrintingWebServerHost(
                 FitToPage = true
             };
 
+            int totalPages = 1;
+            try
+            {
+                var renderer = _rendererResolver.Resolve(cachedFile.CachedFilePath);
+                totalPages = await renderer.GetPageCountAsync(cachedFile.CachedFilePath);
+            }
+            catch { }
+
+            var pipelineId = Guid.NewGuid().ToString("N")[..8];
+            using var itemCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            _queueService.RegisterPipelineJob(pipelineId, printer.Name, cachedFile.OriginalFileName, totalPages, itemCts);
+
+            _eventHub.Publish(new PrintEvent
+            {
+                Type = "queue_updated",
+                Printer = printer.Name,
+                Message = $"Job '{cachedFile.OriginalFileName}' entered queue."
+            });
+
             var progress = new Progress<string>(msg =>
             {
+                _queueService.UpdatePipelineJob(pipelineId, itemIndex, PrintJobStatusCode.Spooling, msg);
                 _eventHub.Publish(new PrintEvent
                 {
                     Type = "progress",
@@ -538,7 +656,7 @@ public class PrintingWebServerHost(
 
             try
             {
-                var result = await _printService.PrintAsync(printRequest, progress, ct);
+                var result = await _printService.PrintAsync(printRequest, progress, itemCts.Token);
 
                 if (result.Success)
                 {
@@ -548,7 +666,7 @@ public class PrintingWebServerHost(
                         FileName = cachedFile.OriginalFileName,
                         Printer = printer.Name,
                         PagesPrinted = result.PagesPrinted,
-                        Message = $"Successfully printed '{cachedFile.OriginalFileName}' ({result.PagesPrinted} page(s), {result.CopiesPrinted} copy/copies)."
+                        Message = $"Successfully spooled '{cachedFile.OriginalFileName}' ({result.PagesPrinted} page(s), {result.CopiesPrinted} copy/copies)."
                     });
                 }
                 else
@@ -562,6 +680,16 @@ public class PrintingWebServerHost(
                     });
                 }
             }
+            catch (OperationCanceledException)
+            {
+                _eventHub.Publish(new PrintEvent
+                {
+                    Type = "error",
+                    FileName = cachedFile.OriginalFileName,
+                    Printer = printer.Name,
+                    Message = $"Printing of '{cachedFile.OriginalFileName}' was cancelled by user."
+                });
+            }
             catch (Exception ex)
             {
                 _eventHub.Publish(new PrintEvent
@@ -570,6 +698,16 @@ public class PrintingWebServerHost(
                     FileName = cachedFile.OriginalFileName,
                     Printer = printer.Name,
                     Message = $"Unexpected printing exception for '{cachedFile.OriginalFileName}': {ex.Message}"
+                });
+            }
+            finally
+            {
+                _queueService.UnregisterPipelineJob(pipelineId);
+                _eventHub.Publish(new PrintEvent
+                {
+                    Type = "queue_updated",
+                    Printer = printer.Name,
+                    Message = $"Queue updated."
                 });
             }
         }

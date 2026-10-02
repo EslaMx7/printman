@@ -1,4 +1,4 @@
-﻿using Printman.Core.Models;
+using Printman.Core.Models;
 
 namespace Printman.CLI;
 
@@ -23,6 +23,9 @@ public class ParsedArguments
     public bool RequireAuth { get; set; } = true;
     public int MaxUploadMb { get; set; } = 50;
     public int CacheLimitMb { get; set; } = 500;
+    public bool WatchQueue { get; set; } = false;
+    public string? JobId { get; set; }
+
 
     public PrintJobRequest ToPrintJobRequest()
     {

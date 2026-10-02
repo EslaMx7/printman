@@ -217,9 +217,33 @@
     .log-error { color: var(--destructive); font-weight: 500; }
     .log-queued { color: var(--warning); font-weight: 500; }
 
-    /* Progress bar */
-    .progress-bar-wrap { height: 4px; background: var(--muted); border-radius: 4px; overflow: hidden; margin-top: 6px; }
-    .progress-bar { height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease; }
+    /* Tabs */
+    .tab-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); margin-bottom: 14px; padding-bottom: 8px; }
+    .tab-buttons { display: flex; gap: 8px; }
+    .tab-btn { background: none; border: none; font-size: 0.82rem; font-weight: 600; color: var(--muted-foreground); cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+    .tab-btn:hover { background: var(--secondary); color: var(--foreground); }
+    .tab-btn.active { background: var(--secondary); color: var(--foreground); border: 1px solid var(--border); }
+    .badge-counter { background: var(--chart-2); color: white; border-radius: 10px; padding: 1px 7px; font-size: 0.7rem; font-weight: 700; }
+    .btn-sm-danger { background: rgba(231, 0, 11, 0.1); border: 1px solid rgba(231, 0, 11, 0.25); color: var(--destructive); font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 4px; }
+    .btn-sm-danger:hover { background: var(--destructive); color: white; }
+
+    /* Spooler Jobs List */
+    .spooler-jobs-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
+    .spool-job-card { display: flex; align-items: center; justify-content: space-between; background: var(--secondary); border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); padding: 10px 14px; }
+    .spool-job-info { display: flex; flex-direction: column; gap: 3px; overflow: hidden; flex: 1; margin-right: 12px; }
+    .spool-job-title { font-size: 0.88rem; font-weight: 600; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+    .spool-job-meta { font-size: 0.75rem; color: var(--muted-foreground); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .spool-job-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .btn-cancel-job { background: rgba(231, 0, 11, 0.08); border: 1px solid rgba(231, 0, 11, 0.2); color: var(--destructive); font-size: 0.75rem; font-weight: 600; padding: 4px 9px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+    .btn-cancel-job:hover { background: var(--destructive); color: white; }
+
+    /* Status Badges */
+    .status-badge-ready { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+    .status-badge-busy { background: rgba(58, 129, 246, 0.12); color: var(--chart-2); border: 1px solid rgba(58, 129, 246, 0.25); }
+    .status-badge-warn { background: rgba(245, 158, 11, 0.12); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.25); }
+    .status-badge-error { background: rgba(231, 0, 11, 0.12); color: var(--destructive); border: 1px solid rgba(231, 0, 11, 0.25); }
+
+    .queue-empty-state { text-align: center; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   </style>
 </head>
 <body>
@@ -232,6 +256,32 @@
       <input type="text" id="pinInput" maxlength="12" placeholder="PIN Code" style="text-align:center; font-size:1.4rem; letter-spacing:4px; font-weight:700; margin-bottom:12px; font-family:var(--font-mono);" autocomplete="off">
       <div id="pinError" style="color:var(--destructive); font-size:0.85rem; margin-bottom:12px; display:none;"></div>
       <button type="button" class="btn-primary" onclick="verifyPin()">Unlock Server</button>
+    </div>
+  </div>
+
+  <!-- Duplicate Print Warning Modal -->
+  <div id="duplicateModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(8px); z-index:9998; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="width:100%; max-width:440px; text-align:center; padding:24px 20px; box-shadow:var(--shadow-md);">
+      <div style="font-size:2.4rem; margin-bottom:10px;">⚠️</div>
+      <h2 style="font-size:1.15rem; font-weight:700; margin-bottom:8px; color:var(--foreground);">Potential Duplicate Job</h2>
+      <p id="duplicateModalMsg" style="font-size:0.85rem; color:var(--muted-foreground); margin-bottom:20px; line-height:1.5;">This document is already queued or printing on this printer. Would you like to print another copy anyway?</p>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button type="button" style="flex:1; padding:11px; border-radius:var(--radius); border:1px solid var(--border); background:var(--secondary); color:var(--foreground); cursor:pointer; font-weight:600;" onclick="handleDuplicateResponse(false)">Cancel</button>
+        <button type="button" class="btn-primary" style="flex:1; padding:11px;" onclick="handleDuplicateResponse(true)">Print Duplicate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Purge Confirmation Modal -->
+  <div id="purgeModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(8px); z-index:9998; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="width:100%; max-width:400px; text-align:center; padding:24px 20px; box-shadow:var(--shadow-md);">
+      <div style="font-size:2.4rem; margin-bottom:10px;">🗑️</div>
+      <h2 style="font-size:1.15rem; font-weight:700; margin-bottom:8px; color:var(--foreground);">Purge All Print Jobs?</h2>
+      <p id="purgeModalMsg" style="font-size:0.85rem; color:var(--muted-foreground); margin-bottom:20px; line-height:1.5;">This will cancel and remove all pending and active jobs from this printer's spooler queue.</p>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button type="button" style="flex:1; padding:11px; border-radius:var(--radius); border:1px solid var(--border); background:var(--secondary); color:var(--foreground); cursor:pointer; font-weight:600;" onclick="closePurgeModal(false)">Keep Jobs</button>
+        <button type="button" class="btn-primary" style="flex:1; padding:11px; background:var(--destructive); border-color:var(--destructive);" onclick="closePurgeModal(true)">Yes, Purge All</button>
+      </div>
     </div>
   </div>
 
@@ -279,7 +329,10 @@
       <div class="form-grid">
         <!-- Printer Selection -->
         <div class="form-group full-width">
-          <label for="printerSelect">Target Printer</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label for="printerSelect" style="margin-bottom:0;">Target Printer</label>
+            <span id="printerStatusBadge" class="badge status-badge-ready" style="font-size:0.72rem; display:none;">Online • Ready</span>
+          </div>
           <select id="printerSelect">
             <option value="">Loading printers...</option>
           </select>
@@ -349,19 +402,48 @@
       </div>
     </div>
 
-    <!-- Live Activity & Status -->
-    <div class="card">
-      <div class="card-title">
-        <span>Live Print Activity (SSE)</span>
-        <span id="clearLogsBtn" style="font-size:0.75rem; cursor:pointer; color:var(--muted-foreground);" onclick="clearLogs()">Clear</span>
-      </div>
-      <div id="logsContainer" class="logs-container">
-        <div class="log-item">
-          <span class="log-time">--:--:--</span>
-          <span class="log-msg" style="color:var(--muted-foreground);">Waiting for print activity...</span>
+    <!-- Tabbed Bottom Panel: Spooler Queue & Activity Log -->
+    <div class="card" style="padding-bottom:14px;">
+      <div class="tab-header">
+        <div class="tab-buttons">
+          <button type="button" class="tab-btn active" id="tabQueueBtn" onclick="switchTab('queue')">
+            <span>📋 Live Spooler Queue</span>
+            <span id="spoolerQueueBadge" class="badge badge-counter" style="display:none;">0</span>
+          </button>
+          <button type="button" class="tab-btn" id="tabLogsBtn" onclick="switchTab('logs')">
+            <span>📜 Activity Log</span>
+          </button>
+        </div>
+        <div id="queueHeaderActions" style="display:flex; align-items:center; gap:8px;">
+          <button type="button" id="purgeQueueBtn" class="btn-sm-danger" style="display:none;" onclick="confirmPurgeQueue()">
+            <span>🗑️ Purge All Jobs</span>
+          </button>
+          <span id="clearLogsBtn" style="font-size:0.75rem; cursor:pointer; color:var(--muted-foreground); display:none;" onclick="clearLogs()">Clear</span>
         </div>
       </div>
-      <div class="progress-bar-wrap">
+
+      <!-- Tab 1: Live Spooler Queue -->
+      <div id="tabQueueContent" class="tab-content">
+        <div id="spoolerJobsList" class="spooler-jobs-list">
+          <div class="queue-empty-state">
+            <span style="font-size:1.8rem; margin-bottom:4px;">✨</span>
+            <span style="font-weight:600; color:var(--foreground);">Print Queue is Clear</span>
+            <span style="font-size:0.8rem; color:var(--muted-foreground);">No pending or active jobs in the spooler queue.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Activity Logs -->
+      <div id="tabLogsContent" class="tab-content" style="display:none;">
+        <div id="logsContainer" class="logs-container">
+          <div class="log-item">
+            <span class="log-time">--:--:--</span>
+            <span class="log-msg" style="color:var(--muted-foreground);">Waiting for print activity...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap" style="margin-top:10px;">
         <div id="activeProgressBar" class="progress-bar"></div>
       </div>
     </div>
@@ -417,9 +499,12 @@
     const state = {
       printers: [],
       uploadedFiles: [], // { fileId, fileName, fileSize, pageCount, isDuplicate }
+      spoolerJobs: [],
+      currentPrinterStatus: null,
       isPrinting: false,
       pin: null,
-      authRequired: true
+      authRequired: true,
+      activeTab: 'queue'
     };
 
     // Elements
@@ -428,6 +513,7 @@
     const queueList = document.getElementById('queueList');
     const queueCount = document.getElementById('queueCount');
     const printerSelect = document.getElementById('printerSelect');
+    const printerStatusBadge = document.getElementById('printerStatusBadge');
     const paperSizeSelect = document.getElementById('paperSizeSelect');
     const printBtn = document.getElementById('printBtn');
     const printBtnText = document.getElementById('printBtnText');
@@ -435,6 +521,18 @@
     const activeProgressBar = document.getElementById('activeProgressBar');
     const connBadge = document.getElementById('connBadge');
     const connText = document.getElementById('connText');
+    const tabQueueBtn = document.getElementById('tabQueueBtn');
+    const tabLogsBtn = document.getElementById('tabLogsBtn');
+    const tabQueueContent = document.getElementById('tabQueueContent');
+    const tabLogsContent = document.getElementById('tabLogsContent');
+    const spoolerJobsList = document.getElementById('spoolerJobsList');
+    const spoolerQueueBadge = document.getElementById('spoolerQueueBadge');
+    const purgeQueueBtn = document.getElementById('purgeQueueBtn');
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+    const duplicateModal = document.getElementById('duplicateModal');
+    const duplicateModalMsg = document.getElementById('duplicateModalMsg');
+    const purgeModal = document.getElementById('purgeModal');
+    const purgeModalMsg = document.getElementById('purgeModalMsg');
 
     // Headers generator (includes CSRF defense and PIN auth - sec-01, sec-04)
     function getHeaders(contentType) {
@@ -598,6 +696,8 @@
       document.getElementById('duplexGroup').style.opacity = printer.canDuplex ? '1' : '0.4';
       // Color visibility
       document.getElementById('colorGroup').style.opacity = printer.supportsColor ? '1' : '0.4';
+
+      fetchQueue();
     }
 
     // Copies Stepper
@@ -726,7 +826,190 @@
       printBtnText.textContent = `Print ${state.uploadedFiles.length} Document(s)`;
     }
 
-    // Submit Print Jobs
+    // Tabs Management
+    function switchTab(tab) {
+      state.activeTab = tab;
+      if (tab === 'queue') {
+        tabQueueBtn.classList.add('active');
+        tabLogsBtn.classList.remove('active');
+        tabQueueContent.style.display = 'block';
+        tabLogsContent.style.display = 'none';
+        clearLogsBtn.style.display = 'none';
+        if (state.spoolerJobs.length > 0) purgeQueueBtn.style.display = 'inline-flex';
+      } else {
+        tabQueueBtn.classList.remove('active');
+        tabLogsBtn.classList.add('active');
+        tabQueueContent.style.display = 'none';
+        tabLogsContent.style.display = 'block';
+        clearLogsBtn.style.display = 'inline';
+        purgeQueueBtn.style.display = 'none';
+      }
+    }
+
+    // Live Spooler Queue Management
+    async function fetchQueue() {
+      const selectedPrinter = printerSelect ? printerSelect.value : '';
+      try {
+        const url = selectedPrinter ? `/api/queue?printer=${encodeURIComponent(selectedPrinter)}` : '/api/queue';
+        const res = await fetch(url, { headers: getHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        state.spoolerJobs = data.jobs || [];
+        state.currentPrinterStatus = data.status || null;
+        renderSpoolerQueue();
+        updatePrinterStatusBadge(data.status);
+      } catch (err) {
+        console.error('Failed to fetch queue:', err);
+      }
+    }
+
+    function updatePrinterStatusBadge(status) {
+      if (!printerStatusBadge) return;
+      if (!status) {
+        printerStatusBadge.style.display = 'none';
+        return;
+      }
+
+      printerStatusBadge.style.display = 'inline-block';
+      printerStatusBadge.textContent = status.statusText || 'Ready';
+
+      if (status.hasError || !status.isOnline || status.isPaperJam || status.isOutOfPaper) {
+        printerStatusBadge.className = 'badge status-badge-error';
+        if (status.isPaperJam) printerStatusBadge.textContent = '⚠️ Paper Jam!';
+        else if (status.isOutOfPaper) printerStatusBadge.textContent = '⚠️ Out of Paper';
+        else if (!status.isOnline) printerStatusBadge.textContent = '🔌 Printer Offline';
+      } else if (status.isPaused) {
+        printerStatusBadge.className = 'badge status-badge-warn';
+        printerStatusBadge.textContent = '⏸️ Paused';
+      } else if (status.isBusy || status.queuedJobCount > 0) {
+        printerStatusBadge.className = 'badge status-badge-busy';
+      } else {
+        printerStatusBadge.className = 'badge status-badge-ready';
+      }
+    }
+
+    function renderSpoolerQueue() {
+      if (!spoolerJobsList) return;
+
+      const jobs = state.spoolerJobs;
+      const count = jobs.length;
+
+      if (count > 0) {
+        spoolerQueueBadge.textContent = count;
+        spoolerQueueBadge.style.display = 'inline-block';
+        if (state.activeTab === 'queue') purgeQueueBtn.style.display = 'inline-flex';
+      } else {
+        spoolerQueueBadge.style.display = 'none';
+        purgeQueueBtn.style.display = 'none';
+      }
+
+      if (count === 0) {
+        spoolerJobsList.innerHTML = `
+          <div class="queue-empty-state">
+            <span style="font-size:1.8rem; margin-bottom:4px;">✨</span>
+            <span style="font-weight:600; color:var(--foreground);">Print Queue is Clear</span>
+            <span style="font-size:0.8rem; color:var(--muted-foreground);">No pending or active jobs in the spooler queue.</span>
+          </div>
+        `;
+        return;
+      }
+
+      spoolerJobsList.innerHTML = '';
+      jobs.forEach(j => {
+        const card = document.createElement('div');
+        card.className = 'spool-job-card';
+
+        let badgeClass = 'status-badge-ready';
+        let icon = '🖨️';
+        const code = j.statusCode;
+        if (code === 2) { badgeClass = 'status-badge-ready'; icon = '⚙️'; }
+        else if (code === 1 || code === 0) { badgeClass = 'status-badge-busy'; icon = '⏳'; }
+        else if (code === 3) { badgeClass = 'status-badge-warn'; icon = '⏸️'; }
+        else if (code === 4 || code === 5 || code === 6 || code === 7) { badgeClass = 'status-badge-error'; icon = '⚠️'; }
+        else if (code === 8) { badgeClass = 'status-badge-warn'; icon = '🗑️'; }
+
+        const pagesText = j.totalPages > 0
+          ? `${j.pagesPrinted}/${j.totalPages} page(s)`
+          : `${j.pagesPrinted} page(s)`;
+
+        const jobIdDisplay = j.isPrintmanPipelineJob ? 'Pre-spool' : `#${j.jobId}`;
+        const cancelTargetId = j.pipelineJobId || j.jobId.toString();
+
+        card.innerHTML = `
+          <div class="spool-job-info">
+            <div class="spool-job-title" title="${escapeHtml(j.documentName)}">
+              <span>${icon}</span>
+              <span>${escapeHtml(j.documentName)}</span>
+            </div>
+            <div class="spool-job-meta">
+              <span class="badge ${badgeClass}">${escapeHtml(j.statusDescription)}</span>
+              <span>Job ${jobIdDisplay}</span>
+              <span>${pagesText}</span>
+              <span>${escapeHtml(j.printerName)}</span>
+            </div>
+          </div>
+          <div class="spool-job-actions">
+            <button type="button" class="btn-cancel-job" onclick="cancelJob('${escapeHtml(j.printerName)}', '${cancelTargetId}', '${escapeHtml(j.documentName)}')" title="Cancel this print job">Cancel</button>
+          </div>
+        `;
+        spoolerJobsList.appendChild(card);
+      });
+    }
+
+    async function cancelJob(printer, jobId, docName) {
+      if (!confirm(`Cancel print job for '${docName}'?`)) return;
+
+      try {
+        const res = await fetch('/api/queue/cancel', {
+          method: 'POST',
+          headers: getHeaders('application/json'),
+          body: JSON.stringify({ printer, jobId })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          addLog('queued', `Cancelled job '${docName}' (${jobId}).`);
+          await fetchQueue();
+        } else {
+          alert('Cancel error: ' + (data.error || 'Could not cancel job.'));
+        }
+      } catch (err) {
+        alert('Network error while canceling job: ' + err.message);
+      }
+    }
+
+    function confirmPurgeQueue() {
+      const printer = printerSelect.value;
+      if (!printer) return;
+      purgeModalMsg.textContent = `This will purge all ${state.spoolerJobs.length} queued job(s) from printer '${printer}'.`;
+      purgeModal.style.display = 'flex';
+    }
+
+    async function closePurgeModal(confirmed) {
+      purgeModal.style.display = 'none';
+      if (!confirmed) return;
+
+      const printer = printerSelect.value;
+      if (!printer) return;
+
+      try {
+        const res = await fetch('/api/queue/purge', {
+          method: 'POST',
+          headers: getHeaders('application/json'),
+          body: JSON.stringify({ printer })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          addLog('completed', `Purged ${data.purged} job(s) from '${printer}'.`);
+          await fetchQueue();
+        } else {
+          alert('Purge error: ' + (data.error || 'Failed to purge queue.'));
+        }
+      } catch (err) {
+        alert('Network error while purging queue: ' + err.message);
+      }
+    }
+
+    // Submit Print Jobs with Duplicate Detection
     async function submitPrintJobs() {
       if (state.uploadedFiles.length === 0 || state.isPrinting) return;
 
@@ -736,6 +1019,33 @@
         return;
       }
 
+      // Safeguard: Check if any uploaded file is currently in the active queue for this printer
+      const duplicates = state.uploadedFiles.filter(f =>
+        state.spoolerJobs.some(j =>
+          stringEqualsIgnoreCase(j.printerName, printer) &&
+          stringEqualsIgnoreCase(j.documentName, f.fileName)
+        )
+      );
+
+      if (duplicates.length > 0) {
+        const names = duplicates.map(d => `'${d.fileName}'`).join(', ');
+        duplicateModalMsg.innerHTML = `<strong>${names}</strong> is already pending or printing on <strong>${escapeHtml(printer)}</strong>.<br><br>Printing again will create duplicate prints. Do you want to submit anyway?`;
+        duplicateModal.style.display = 'flex';
+        return;
+      }
+
+      await doSubmitPrintJobs();
+    }
+
+    async function handleDuplicateResponse(proceed) {
+      duplicateModal.style.display = 'none';
+      if (proceed) {
+        await doSubmitPrintJobs();
+      }
+    }
+
+    async function doSubmitPrintJobs() {
+      const printer = printerSelect.value;
       state.isPrinting = true;
       printBtn.disabled = true;
       printBtnText.textContent = 'Submitting print jobs...';
@@ -775,6 +1085,15 @@
 
         const queueNote = data.position > 1 ? ` (Queue position: ${data.position})` : '';
         addLog('progress', `Print batch accepted by server (${payload.items.length} file(s))${queueNote}. Execution in progress...`);
+
+        // Clear sent files from UI so user does not re-click print for the same selection
+        state.uploadedFiles = [];
+        state.isPrinting = false;
+        fileInput.value = '';
+        renderQueue();
+
+        switchTab('queue');
+        await fetchQueue();
       } catch (err) {
         addLog('error', 'Print submission error: ' + err.message);
         state.isPrinting = false;
@@ -791,6 +1110,7 @@
       evtSource.onopen = () => {
         connBadge.className = 'connection-badge connected';
         connText.textContent = 'Live SSE Connected';
+        fetchQueue();
       };
 
       evtSource.onerror = () => {
@@ -809,6 +1129,11 @@
     }
 
     function handlePrintEvent(evt) {
+      if (evt.type === 'queue_updated') {
+        fetchQueue();
+        return;
+      }
+
       addLog(evt.type, evt.message);
 
       if (evt.totalPages && evt.pagesPrinted) {
@@ -821,11 +1146,17 @@
         setTimeout(() => { activeProgressBar.style.width = '0%'; }, 2000);
         state.isPrinting = false;
         renderQueue();
+        fetchQueue();
       } else if (evt.type === 'error') {
         activeProgressBar.style.width = '0%';
         state.isPrinting = false;
         renderQueue();
+        fetchQueue();
       }
+    }
+
+    function stringEqualsIgnoreCase(a, b) {
+      return (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
     }
 
     // Activity Log
