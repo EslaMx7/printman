@@ -12,6 +12,29 @@ Architected following **SOLID principles** so that the underlying printing engin
 
 ---
 
+## 💡 Why Printman?
+
+> *"Do not replace reliable hardware. Modernize the access layer."*
+
+* **The Story:**  
+  In 2014, I bought an **HP LaserJet Professional P1102** printer using revenue from my first freelance projects. For more than 12 years, this printer moved with my family to every new home. The hardware has never broken down or failed. One toner cartridge provides three years of continuous use. It is durable, economical, and dependable.
+
+* **The Problem:**  
+  The printer has one major limitation: it requires a direct USB connection to a Windows computer. Drivers for macOS and Linux are difficult to find and configure.  
+  During the school season, our children need printed homework and study sheets from school portals. The daily workflow was slow:
+  1. Download the document on a phone or laptop.
+  2. Transfer the file to the desktop computer.
+  3. Log in to the desktop and start the print job manually.  
+  
+  This manual process made me the bottleneck for every document in the house. My wife needed a direct, self-service way to print school materials from her smartphone.
+
+* **The Solution:**  
+  Modern Wi-Fi printers are often fragile, expensive, and dependent on cloud accounts. Instead of replacing functional hardware, I built **Printman**.  
+  Printman converts the host Windows machine into a lightweight, zero-dependency local print server (`printman serve`). It gives our 12-year-old USB printer instant wireless printing capabilities.  
+  Now, my wife prints assignments directly from her phone browser in seconds. We removed household friction, prevented electronic waste, and kept a proven machine in service.
+
+---
+
 ## 🌟 Key Features
 
 - **Zero Third-Party Dependencies:** Uses built-in .NET SDK and native Windows APIs (`Windows.Data.Pdf` for vector PDF rasterization, `System.Drawing.Printing` for printer spooling and hardware controls).
