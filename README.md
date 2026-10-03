@@ -12,7 +12,7 @@ A small, zero-dependency Windows tool to print documents from your phone over lo
 
 ## ⚡ TL;DR
 
-Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
+Turn any old USB Windows printer into a wireless phone printer:
 1. **Start the server on your Windows PC:**
    ```powershell
    ./printman serve --no-auth
