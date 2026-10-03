@@ -3,6 +3,7 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)]()
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/eslamx7)
 
 A small, zero-dependency Windows tool to print documents from your phone over local Wi-Fi to old USB Windows printers.
 
@@ -228,6 +229,9 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE) for de
 
 ## 🤝 Contributing
 Feedback and small fixes are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## ☕ Support
+If Printman saved you time or rescued an old printer, consider [buying me a coffee](https://buymeacoffee.com/eslamx7) to support maintenance and future development.
 
 ---
 
