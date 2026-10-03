@@ -394,6 +394,18 @@
         </div>
       </div>
 
+      <!-- Remember Settings Action -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.84rem; color:var(--foreground); user-select:none;">
+          <input type="checkbox" id="rememberSettingsCheckbox" style="cursor:pointer; accent-color:var(--primary, #0078d4); width:16px; height:16px;" onchange="toggleRememberSettings()">
+          <span>Remember my settings on this device</span>
+        </label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span id="savedFeedback" style="font-size:0.75rem; color:#10b981; font-weight:600; display:none;">✓ Saved</span>
+          <button type="button" id="resetSettingsBtn" style="display:none; font-size:0.75rem; color:var(--muted-foreground); background:none; border:none; cursor:pointer; padding:0; text-decoration:underline;" onclick="resetToDefaultSettings()">Reset</button>
+        </div>
+      </div>
+
       <div style="margin-top:18px;">
         <button id="printBtn" class="btn-primary" disabled onclick="submitPrintJobs()">
           <span>🖨️</span>
@@ -669,12 +681,16 @@
         });
 
         updatePrinterCapabilities();
+        applySavedSettings();
       } catch (err) {
         addLog('error', 'Failed to load printers from server: ' + err.message);
       }
     }
 
-    printerSelect.addEventListener('change', updatePrinterCapabilities);
+    printerSelect.addEventListener('change', () => {
+      updatePrinterCapabilities();
+      onFieldChanged();
+    });
 
     function updatePrinterCapabilities() {
       const selectedName = printerSelect.value;
@@ -682,6 +698,7 @@
       if (!printer) return;
 
       // Update paper sizes
+      const prevPaper = paperSizeSelect.value;
       paperSizeSelect.innerHTML = '<option value="">Printer Default</option>';
       if (printer.supportedPaperSizes) {
         printer.supportedPaperSizes.forEach(s => {
@@ -690,6 +707,9 @@
           opt.textContent = `${s.name} (${s.widthMm} x ${s.heightMm} mm)`;
           paperSizeSelect.appendChild(opt);
         });
+      }
+      if (prevPaper && Array.from(paperSizeSelect.options).some(o => o.value === prevPaper)) {
+        paperSizeSelect.value = prevPaper;
       }
 
       // Duplex visibility
@@ -706,7 +726,124 @@
       let val = parseInt(input.value) || 1;
       val = Math.max(1, Math.min(99, val + delta));
       input.value = val;
+      onFieldChanged();
     }
+
+    // Remember Settings Management (localStorage)
+    const SETTINGS_KEY = 'printman_saved_settings';
+
+    function saveCurrentSettings() {
+      const settings = {
+        printer: printerSelect.value,
+        pages: document.getElementById('pagesInput')?.value || '',
+        paperSize: paperSizeSelect.value,
+        copies: document.getElementById('copiesInput')?.value || '1',
+        orientation: document.getElementById('orientationSelect')?.value || 'auto',
+        duplex: document.getElementById('duplexSelect')?.value || 'default',
+        color: document.getElementById('colorSelect')?.value || 'default'
+      };
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    let savedFeedbackTimer = null;
+    function showSavedFeedback() {
+      const el = document.getElementById('savedFeedback');
+      const resetBtn = document.getElementById('resetSettingsBtn');
+      if (!el) return;
+      el.style.display = 'inline';
+      if (resetBtn) resetBtn.style.display = 'inline';
+      clearTimeout(savedFeedbackTimer);
+      savedFeedbackTimer = setTimeout(() => {
+        el.style.display = 'none';
+      }, 2000);
+    }
+
+    function toggleRememberSettings() {
+      const cb = document.getElementById('rememberSettingsCheckbox');
+      const resetBtn = document.getElementById('resetSettingsBtn');
+      if (cb && cb.checked) {
+        saveCurrentSettings();
+        showSavedFeedback();
+        if (resetBtn) resetBtn.style.display = 'inline';
+        addLog('info', 'Print settings remembered on this device');
+      } else {
+        localStorage.removeItem(SETTINGS_KEY);
+        if (resetBtn) resetBtn.style.display = 'none';
+        addLog('info', 'Saved print settings cleared');
+      }
+    }
+
+    function onFieldChanged() {
+      const cb = document.getElementById('rememberSettingsCheckbox');
+      if (cb && cb.checked) {
+        saveCurrentSettings();
+        showSavedFeedback();
+      }
+    }
+
+    function applySavedSettings() {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      const cb = document.getElementById('rememberSettingsCheckbox');
+      const resetBtn = document.getElementById('resetSettingsBtn');
+      if (!raw) {
+        if (cb) cb.checked = false;
+        if (resetBtn) resetBtn.style.display = 'none';
+        return;
+      }
+
+      try {
+        const s = JSON.parse(raw);
+        if (cb) cb.checked = true;
+        if (resetBtn) resetBtn.style.display = 'inline';
+
+        if (s.printer && state.printers.some(p => p.name === s.printer)) {
+          printerSelect.value = s.printer;
+          updatePrinterCapabilities();
+        }
+        if (s.paperSize !== undefined && Array.from(paperSizeSelect.options).some(o => o.value === s.paperSize)) {
+          paperSizeSelect.value = s.paperSize;
+        }
+        if (s.copies) document.getElementById('copiesInput').value = s.copies;
+        if (s.pages !== undefined) document.getElementById('pagesInput').value = s.pages;
+        if (s.orientation) document.getElementById('orientationSelect').value = s.orientation;
+        if (s.duplex) document.getElementById('duplexSelect').value = s.duplex;
+        if (s.color) document.getElementById('colorSelect').value = s.color;
+      } catch (err) {
+        console.error('Failed to restore saved settings', err);
+      }
+    }
+
+    function resetToDefaultSettings() {
+      localStorage.removeItem(SETTINGS_KEY);
+      const cb = document.getElementById('rememberSettingsCheckbox');
+      if (cb) cb.checked = false;
+      const resetBtn = document.getElementById('resetSettingsBtn');
+      if (resetBtn) resetBtn.style.display = 'none';
+
+      // Re-select Windows default printer
+      const defaultPrinter = state.printers.find(p => p.isDefault) || state.printers[0];
+      if (defaultPrinter) {
+        printerSelect.value = defaultPrinter.name;
+        updatePrinterCapabilities();
+      }
+      document.getElementById('pagesInput').value = '';
+      paperSizeSelect.value = '';
+      document.getElementById('copiesInput').value = '1';
+      document.getElementById('orientationSelect').value = 'auto';
+      document.getElementById('duplexSelect').value = 'default';
+      document.getElementById('colorSelect').value = 'default';
+
+      addLog('info', 'Print settings reset to defaults');
+    }
+
+    // Attach change listeners to print settings fields
+    ['pagesInput', 'paperSizeSelect', 'orientationSelect', 'duplexSelect', 'colorSelect'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('change', onFieldChanged);
+        el.addEventListener('input', onFieldChanged);
+      }
+    });
 
     // File Upload & Drag-and-Drop
     function initDropZone() {
@@ -1046,6 +1183,9 @@
 
     async function doSubmitPrintJobs() {
       const printer = printerSelect.value;
+      if (document.getElementById('rememberSettingsCheckbox')?.checked) {
+        saveCurrentSettings();
+      }
       state.isPrinting = true;
       printBtn.disabled = true;
       printBtnText.textContent = 'Submitting print jobs...';
