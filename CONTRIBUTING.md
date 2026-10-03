@@ -13,7 +13,7 @@ Thank you for your interest in contributing to Printman! This document provides 
 ### Clone the Repository
 
 ```powershell
-git clone https://github.com/your-org/printman.git
+git clone https://github.com/eslamx7/printman.git
 cd printman
 ```
 
@@ -168,15 +168,17 @@ Printman/
 │   └── InteractiveWizard.cs
 ├── Printman.csproj              # Project configuration
 ├── Program.cs                   # Composition Root & DI configuration
-├── sample.txt                   # Sample test text file
-└── test_sample.pdf              # Sample 3-page test PDF
+└── tests/
+    └── fixtures/
+        ├── sample.txt           # Sample test text file
+        └── test_sample.pdf      # Sample 3-page test PDF
 ```
 
 ## Getting Help
 
 If you have questions or need clarification, feel free to:
 
-- Open a [GitHub Discussion](https://github.com/your-org/printman/discussions)
+- Open a [GitHub Discussion](https://github.com/eslamx7/printman/discussions)
 - Reach out in the project's issue tracker
 
 Thank you for contributing to Printman!

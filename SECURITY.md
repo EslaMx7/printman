@@ -15,7 +15,7 @@ We take the security of Printman seriously. If you discover a security vulnerabi
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, please report vulnerabilities via [GitHub Private Security Advisory](https://github.com/your-org/printman/security/advisories/new):
+Instead, please report vulnerabilities via [GitHub Private Security Advisory](https://github.com/eslamx7/printman/security/advisories/new):
 
 1. Navigate to the **Security** tab of the repository.
 2. Click **"Report a vulnerability"**.
