@@ -4,9 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)]()
 
-A small, zero-dependency Windows tool to print documents from your terminal, an interactive menu, or directly from your phone over local Wi-Fi.
-
-> *"A simple printing bridge for your Windows desk PC."*
+A small, zero-dependency Windows tool to print documents from your phone over local Wi-Fi to old USB Windows printers.
 
 ---
 
@@ -17,10 +15,8 @@ Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
    ```powershell
    printman serve
    ```
-2. **Open the link on your phone:** Connect via local Wi-Fi (e.g. `http://192.168.1.50:5000/?pin=...`).
-3. **Print:** Upload PDFs, images, or documents directly from your mobile browser.
-
-**No cloud accounts. No mobile apps. Zero third-party packages.**
+2. **Open the link on your phone:** Connect via local Wi-Fi (e.g. `http://192.168.1.50:5000`).
+3. **Print:** Send PDFs, images, or documents directly from your mobile browser to your Windows printer.
 
 ---
 
@@ -29,32 +25,30 @@ Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
 > *"Do not replace reliable hardware. Modernize the access layer."*
 
 * **The Story:**  
-  In 2014, I bought an **HP LaserJet Professional P1102** printer using revenue from my first freelance projects. For more than 12 years, this printer moved with my family to every new home. The hardware has never broken down or failed. One toner cartridge provides three years of continuous use. It is durable, economical, and dependable.
+  In 2014, I bought an **HP LaserJet Professional P1102** printer. For more than 12 years, this printer moved with my family to every new home. The hardware has never broken down or failed. One toner cartridge provides three years of continuous use. It is durable, economical, and dependable.
 
 * **The Problem:**  
-  The printer has one major limitation: it requires a direct USB connection to a Windows computer. Drivers for macOS and Linux are difficult to find and configure.  
-  During the school season, our children need printed homework and study sheets from school portals. The daily workflow was slow:
-  1. Download the document on a phone or laptop.
+  The printer has one major limitation: it requires a direct USB connection to a Windows computer. Drivers for macOS and Linux are no longer supported.  
+  During the school season, our children need printed homework and study sheets from school. The daily workflow was slow:
+  1. Download the document on a phone or iPad.
   2. Transfer the file to the desktop computer.
   3. Log in to the desktop and start the print job manually.  
-  
-  This manual process made me the bottleneck for every document in the house. My wife needed a direct, self-service way to print school materials from her smartphone.
 
 * **The Solution:**  
   Modern Wi-Fi printers are often fragile, expensive, and dependent on cloud accounts. Instead of replacing functional hardware, I built **Printman**.  
   Printman converts the host Windows machine into a lightweight, zero-dependency local print server (`printman serve`). It gives our 12-year-old USB printer instant wireless printing capabilities.  
-  Now, my wife prints assignments directly from her phone browser in seconds. We removed household friction, prevented electronic waste, and kept a proven machine in service.
+  Now, my wife prints assignments from her phone and my kids can print their homework from their iPad directly.
 
 ---
 
 ## 🌟 What It Does
 
-- **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers.
-- **Prints Common Formats:** Handles PDF documents (crisp 300 DPI vector rendering), images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
+- **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers (assuming the Printer driver is installed).
+- **Prints Common Formats:** Handles PDF documents, images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
 - **Phone-Ready Web UI:** Run `printman serve` to launch a mobile web page. Anyone on your home Wi-Fi can open it and print from their phone.
 - **Live Spooler & Hardware Diagnostics:** Interrogates the native Windows Spooler and hardware status flags in real time (Paper Jam, Out of Paper, Offline, Door Open, Busy, Paused).
 - **Duplicate Prevention & Queue Control:** Proactively warns before submitting duplicate print jobs when jobs are pending/stuck; allows canceling individual jobs or purging all jobs in one click.
-- **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided terminal wizard.
+- **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided interactive terminal wizard.
 - **Smart Printer Search:** Type partial printer names. For example, `HP Laser` automatically finds `HP LaserJet Professional P1102`.
 - **Full Print Controls:** Set page ranges (e.g. `1:3`, `2,5`), paper sizes (`A4`, `Letter`), copies, orientation, duplex, and color mode.
 
@@ -201,7 +195,7 @@ The wizard prompts you step-by-step:
 ## 🔨 How to Build
 
 ### Requirements
-- Windows 10 (1809+) or Windows 11
+- Windows 10 or Windows 11
 - .NET 10 SDK
 
 ### Development Build
