@@ -531,6 +531,11 @@ public class PrintingWebServerHost(
         Console.ResetColor();
 
         Console.WriteLine("\n  Live SSE status reporting enabled • Drag & drop supported");
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.Write("  Enjoying Printman? Consider buying a coffee: ");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("https://buymeacoffee.com/eslamx7");
+        Console.ResetColor();
         Console.WriteLine("  Press Ctrl+C to stop the server.\n");
 
         int cancelPressCount = 0;
