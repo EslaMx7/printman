@@ -231,7 +231,7 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE) for de
 Feedback and small fixes are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## ☕ Support
-If Printman saved you time or rescued an old printer, consider [buying me a coffee](https://buymeacoffee.com/eslamx7) to support maintenance and future development.
+If Printman saved you time or helped rescue an old printer, a coffee is warmly appreciated: [buymeacoffee.com/eslamx7](https://buymeacoffee.com/eslamx7).
 
 ---
 

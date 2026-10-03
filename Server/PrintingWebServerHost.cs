@@ -532,7 +532,7 @@ public class PrintingWebServerHost(
 
         Console.WriteLine("\n  Live SSE status reporting enabled • Drag & drop supported");
         Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Write("  Enjoying Printman? Consider buying a coffee: ");
+        Console.Write("  Enjoying Printman? If this helped you, a coffee is warmly appreciated: ");
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("https://buymeacoffee.com/eslamx7");
         Console.ResetColor();
