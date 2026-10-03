@@ -26,11 +26,11 @@ public class InteractiveWizard(
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("MAIN MENU:");
             Console.ResetColor();
-            Console.WriteLine("  [1] Print a Document (PDF, Image, Text)");
-            Console.WriteLine("  [2] List Installed Printers");
-            Console.WriteLine("  [3] Inspect Printer Details");
-            Console.WriteLine("  [4] View & Manage Print Spooler Queue");
-            Console.WriteLine("  [5] Start Mobile LAN Web Server");
+            Console.WriteLine("  [1] Start Mobile LAN Web Server");
+            Console.WriteLine("  [2] Print a Document (PDF, Image, Text)");
+            Console.WriteLine("  [3] List Installed Printers");
+            Console.WriteLine("  [4] Inspect Printer Details");
+            Console.WriteLine("  [5] View & Manage Print Spooler Queue");
             Console.WriteLine("  [6] Exit");
             Console.Write("\nSelect an option [1-6] (default 1): ");
 
@@ -40,19 +40,19 @@ public class InteractiveWizard(
             switch (input)
             {
                 case "1":
-                    await RunPrintWizardAsync();
+                    await StartWebServerAsync();
                     break;
                 case "2":
-                    ShowPrinters();
+                    await RunPrintWizardAsync();
                     break;
                 case "3":
-                    ShowPrinterDetails();
+                    ShowPrinters();
                     break;
                 case "4":
-                    await ManageQueueAsync();
+                    ShowPrinterDetails();
                     break;
                 case "5":
-                    await StartWebServerAsync();
+                    await ManageQueueAsync();
                     break;
                 case "6" or "q" or "exit":
                     Console.WriteLine("Goodbye!");

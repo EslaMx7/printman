@@ -57,7 +57,47 @@ Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
 
 ## 🚀 How to Use It
 
-### 1. Quick Terminal Printing
+### 1. Print from Your Phone (`serve`)
+
+Start the local web server on your Windows PC:
+
+```powershell
+# Start with an auto-generated 6-digit PIN
+printman.exe serve
+
+# Start with a specific port and custom PIN
+printman.exe serve --port 8080 --pin 123456
+
+# Start without PIN protection (open home access)
+printman.exe serve --no-auth
+```
+
+Your console displays a local link with your PIN:
+```text
+  [WEB SERVER RUNNING]  Port: 5000
+  [SECURITY] PIN Protected:  849201
+
+  Access from this machine or your phone on the same Wi-Fi:
+    Local:    http://localhost:5000/?pin=849201
+    Network:  http://192.168.1.50:5000/?pin=849201
+
+  Live SSE status reporting enabled • Drag & drop supported
+  Enjoying Printman? If this helped you, a coffee is warmly appreciated: https://buymeacoffee.com/eslamx7
+  Press Ctrl+C to stop the server.
+```
+
+**Mobile Web Features:**
+- **Clean Mobile UI:** Works directly in Safari, Chrome, or any mobile browser. Includes light and dark themes.
+- **Simple PIN Lock:** Protects your printer from unintended network access.
+- **Live Spooler Queue & Progress:** Dual-tab bottom panel (`Live Spooler Queue` and `Activity Log`) with live job progress, status badges, and single-click job cancellation.
+- **Duplicate Prevention Safeguard:** Alerts and asks for confirmation before sending a file that is already pending or printing on that printer.
+- **Automatic Upload Clearing:** Clears sent files from the selection immediately upon submission so users never accidentally tap "Print" twice.
+- **Emergency Queue Purge:** Prominent `Purge All Jobs` button to flush a jammed spooler queue instantly.
+- **Hardware Diagnostics:** Displays real-time printer status badges (Online, Paper Jam, Out of Paper, Offline, Paused).
+- **Serialized Print Pipeline:** Sends jobs one-by-one so Windows GDI+/spooler race conditions never occur.
+- **Automatic Storage Cleanup:** Fast SHA-256 caching with automatic LRU cleanup for old uploads.
+
+### 2. Quick Terminal Printing
 
 ```powershell
 # Print to your default printer
@@ -76,7 +116,7 @@ printman.exe "./doc.pdf" -size A4 -copies 2
 printman.exe "./notes.pdf" -p "HP" -pages 1:2 -size A4 -copies 2 -duplex vertical -orientation portrait
 ```
 
-### 2. Printer & Spooler Queue Tools
+### 3. Printer & Spooler Queue Tools
 
 ```powershell
 # List all connected printers and their status
@@ -101,41 +141,6 @@ printman.exe purge "HP Laser"
 printman.exe help
 ```
 
-### 3. Print from Your Phone (`serve`)
-
-Start the local web server on your Windows PC:
-
-```powershell
-# Start with an auto-generated 6-digit PIN
-printman.exe serve
-
-# Start with a specific port and custom PIN
-printman.exe serve --port 8080 --pin 123456
-
-# Start without PIN protection (open home access)
-printman.exe serve --no-auth
-```
-
-Your console displays a local link with your PIN:
-```text
-  [WEB SERVER RUNNING]  Port: 5000
-  [SECURITY] PIN Protected:  849201
-
-  Open this link on your phone (same Wi-Fi):
-    http://192.168.1.50:5000/?pin=849201
-```
-
-**Mobile Web Features:**
-- **Clean Mobile UI:** Works directly in Safari, Chrome, or any mobile browser. Includes light and dark themes.
-- **Simple PIN Lock:** Protects your printer from unintended network access.
-- **Live Spooler Queue & Progress:** Dual-tab bottom panel (`Live Spooler Queue` and `Activity Log`) with live job progress, status badges, and single-click job cancellation.
-- **Duplicate Prevention Safeguard:** Alerts and asks for confirmation before sending a file that is already pending or printing on that printer.
-- **Automatic Upload Clearing:** Clears sent files from the selection immediately upon submission so users never accidentally tap "Print" twice.
-- **Emergency Queue Purge:** Prominent `Purge All Jobs` button to flush a jammed spooler queue instantly.
-- **Hardware Diagnostics:** Displays real-time printer status badges (Online, Paper Jam, Out of Paper, Offline, Paused).
-- **Serialized Print Pipeline:** Sends jobs one-by-one so Windows GDI+/spooler race conditions never occur.
-- **Automatic Storage Cleanup:** Fast SHA-256 caching with automatic LRU cleanup for old uploads.
-
 ### 4. Interactive Guided Wizard
 
 If you do not want to remember CLI commands, run `printman` without arguments:
@@ -145,11 +150,11 @@ printman.exe
 ```
 
 The wizard prompts you step-by-step:
-1. Print a document (drag & drop, printer picker, page selection, duplex/color options).
-2. List installed printers.
-3. Inspect detailed printer capabilities and paper sizes.
-4. View & manage the Print Spooler Queue (live terminal watcher with `[C]` cancel and `[A]` purge shortcuts).
-5. Start the mobile LAN web server.
+1. Start the mobile LAN web server (default option — press Enter to launch).
+2. Print a document (drag & drop, printer picker, page selection, duplex/color options).
+3. List installed printers.
+4. Inspect detailed printer capabilities and paper sizes.
+5. View & manage the Print Spooler Queue (live terminal watcher with `[C]` cancel and `[A]` purge shortcuts).
 
 ---
 
