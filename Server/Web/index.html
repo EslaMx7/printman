@@ -244,6 +244,31 @@
     .status-badge-error { background: rgba(231, 0, 11, 0.12); color: var(--destructive); border: 1px solid rgba(231, 0, 11, 0.25); }
 
     .queue-empty-state { text-align: center; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    /* Footer & Donate Button */
+    .site-footer { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 6px; padding: 12px 0 24px; text-align: center; }
+    .bmc-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 15px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      background: var(--secondary);
+      color: var(--foreground);
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    .bmc-btn:hover {
+      background: var(--accent);
+      color: var(--foreground);
+      border-color: var(--muted-foreground);
+      transform: translateY(-1px);
+    }
+    .footer-copy { font-size: 0.75rem; color: var(--muted-foreground); letter-spacing: 0.01em; }
   </style>
 </head>
 <body>
@@ -459,6 +484,17 @@
         <div id="activeProgressBar" class="progress-bar"></div>
       </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <a href="https://buymeacoffee.com/eslamx7" target="_blank" rel="noopener noreferrer" class="bmc-btn">
+        <span style="font-size:1rem;">☕</span>
+        <span>Buy me a coffee</span>
+      </a>
+      <span class="footer-copy">
+        &copy; 2026 Eslam Hamouda &bull; Free &amp; Open Source under MIT
+      </span>
+    </footer>
   </div>
 
   <script>
