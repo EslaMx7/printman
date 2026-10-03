@@ -10,6 +10,20 @@ A small, zero-dependency Windows tool to print documents from your terminal, an 
 
 ---
 
+## ⚡ TL;DR
+
+Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
+1. **Start the server on your Windows PC:**
+   ```powershell
+   printman serve
+   ```
+2. **Open the link on your phone:** Connect via local Wi-Fi (e.g. `http://192.168.1.50:5000/?pin=...`).
+3. **Print:** Upload PDFs, images, or documents directly from your mobile browser.
+
+**No cloud accounts. No mobile apps. Zero third-party packages.**
+
+---
+
 ## 💡 Why Printman?
 
 > *"Do not replace reliable hardware. Modernize the access layer."*
