@@ -22,7 +22,6 @@ This document provides context, architectural constraints, and operational instr
 2. **Strict Adherence to SOLID Principles:**
    - **Single Responsibility (SRP):** Keep discovery (`IPrinterDiscoveryService`), document rendering (`IDocumentRenderer`), validation (`IPrintJobValidator`), and spooling (`IPrintService`) strictly isolated. Presentation code (CLI / Interactive) must never talk directly to Windows spoolers or GDI+ graphics.
    - **Open/Closed (OCP):** New document formats must be added by implementing `IDocumentRenderer` and registering in `Program.ConfigureServices` without modifying `WindowsPrintService`.
-   - **Liskov Substitution (LSP):** All renderers must support synchronous drawing onto the supplied `Graphics` surface while respecting the target `printableArea`, DPI, and aspect ratio.
    - **Interface Segregation (ISP):** Keep interfaces fine-grained in `Core/Abstractions/`.
    - **Dependency Inversion (DIP):** Presentation and web servers must depend exclusively on abstractions injected via `IServiceProvider`.
 
