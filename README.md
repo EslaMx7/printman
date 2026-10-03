@@ -291,3 +291,5 @@ If Printman saved you time or helped rescue an old printer, a coffee is warmly a
 
 ## 🤖 Agent Instructions
 For AI coding assistants and contributors, architectural constraints and operational rules are documented in [AGENTS.md](AGENTS.md).
+
+> *This project was made possible by AI assistance using Antigravity powered by Gemini 3.8 Flash.*
