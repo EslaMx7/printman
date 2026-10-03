@@ -15,7 +15,7 @@ A small, zero-dependency Windows tool to print documents from your phone over lo
 Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
 1. **Start the server on your Windows PC:**
    ```powershell
-   printman serve
+   ./printman serve --no-auth
    ```
 2. **Open the link on your phone:** Connect via local Wi-Fi (e.g. `http://192.168.1.50:5000`).
 3. **Print:** Send PDFs, images, or documents directly from your mobile browser to your Windows printer.
@@ -64,6 +64,7 @@ Pre-built Windows binaries are available on [**GitHub Releases**](https://github
 | :--- | :--- |
 | [**Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | Single executable, zero dependencies (no .NET required) |
 | [**Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~215 KB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
+> **Quick Start:** Extract the ZIP file and run `printman.exe` directly or from Windows Terminal.
 
 ---
 
