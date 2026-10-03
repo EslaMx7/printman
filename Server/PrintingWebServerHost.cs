@@ -252,11 +252,23 @@ public class PrintingWebServerHost(
             await next();
         });
 
-        // 1. Root SPA
+        // 1. Root SPA & Favicon
         app.MapGet("/", async ctx =>
         {
             ctx.Response.ContentType = "text/html; charset=utf-8";
             await ctx.Response.WriteAsync(WebAssets.IndexHtml);
+        });
+
+        app.MapGet("/favicon.svg", async ctx =>
+        {
+            ctx.Response.ContentType = "image/svg+xml";
+            await ctx.Response.WriteAsync(WebAssets.FaviconSvg);
+        });
+
+        app.MapGet("/favicon.ico", async ctx =>
+        {
+            ctx.Response.ContentType = "image/svg+xml";
+            await ctx.Response.WriteAsync(WebAssets.FaviconSvg);
         });
 
         // 2. Auth Endpoints (sec-01)
