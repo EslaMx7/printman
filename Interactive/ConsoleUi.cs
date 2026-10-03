@@ -14,8 +14,8 @@ public static class ConsoleUi
 / ____/ /  / / / / / /_/ / / / / / /_/ / / / /       
 /_/   /_/  /_/_/ /_/\__/_/ /_/ /_/\__,_/_/ /_/       ");
         Console.ResetColor();
-        Console.WriteLine(" The API, CLI & LAN Platform for Firing Print Payloads");
-        Console.WriteLine(" -----------------------------------------------------");
+        Console.WriteLine(" Print from your phone to any Windows printer over Wi-Fi");
+        Console.WriteLine(" -------------------------------------------------------");
     }
 
     public static void PrintSuccess(string message)
