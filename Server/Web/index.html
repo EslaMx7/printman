@@ -7,14 +7,15 @@
   <script>
     (function() {
       try {
-        const theme = localStorage.getItem('printman_theme') || 'system';
-        const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        const saved = localStorage.getItem('printman_theme');
+        const isDark = saved ? (saved === 'dark') : window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (isDark) {
           document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'dark');
         } else {
           document.documentElement.classList.remove('dark');
+          document.documentElement.setAttribute('data-theme', 'light');
         }
-        document.documentElement.setAttribute('data-theme', theme);
       } catch (e) {}
     })();
   </script>
@@ -141,18 +142,41 @@
       background: var(--secondary);
       color: var(--secondary-foreground);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 4px 10px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      padding: 0;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 5px;
-      transition: background 0.15s, border-color 0.15s;
+      justify-content: center;
+      transition: all 0.2s ease;
       user-select: none;
+      box-shadow: var(--shadow-sm);
+      flex-shrink: 0;
     }
-    .theme-toggle:hover { background: var(--accent); border-color: var(--ring); }
+    .theme-toggle:hover {
+      background: var(--accent);
+      border-color: var(--ring);
+      transform: translateY(-1px);
+    }
+    .theme-toggle svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.2s ease;
+    }
+    .theme-toggle:hover svg {
+      transform: rotate(15deg);
+    }
+    .theme-toggle .theme-icon-sun { display: none; }
+    .theme-toggle .theme-icon-moon { display: block; }
+    .dark .theme-toggle .theme-icon-sun { display: block; }
+    .dark .theme-toggle .theme-icon-moon { display: none; }
 
     /* Connection Badge */
     .connection-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
@@ -318,9 +342,14 @@
         <span>Printman</span>
       </div>
       <div class="header-actions">
-        <button id="themeToggleBtn" class="theme-toggle" onclick="cycleTheme()" title="Theme: System (Auto)">
-          <span id="themeIcon">💻</span>
-          <span id="themeLabel">Auto</span>
+        <button id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()" title="Switch Theme" aria-label="Switch Theme">
+          <svg class="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+          <svg class="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+          </svg>
         </button>
         <div id="connBadge" class="connection-badge disconnected">
           <span class="dot"></span>
@@ -498,12 +527,11 @@
   </div>
 
   <script>
-    // Theme Management (Auto / Light / Dark)
-    const themeModes = ['system', 'light', 'dark'];
-    function cycleTheme() {
-      const current = localStorage.getItem('printman_theme') || 'system';
-      const next = themeModes[(themeModes.indexOf(current) + 1) % themeModes.length];
-      setTheme(next);
+    // Theme Management (Light / Dark)
+    function toggleTheme() {
+      const isCurrentlyDark = document.documentElement.classList.contains('dark');
+      const nextTheme = isCurrentlyDark ? 'light' : 'dark';
+      setTheme(nextTheme);
     }
 
     function setTheme(theme) {
@@ -512,36 +540,17 @@
     }
 
     function applyTheme(theme) {
-      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const isDark = theme === 'dark';
       document.documentElement.classList.toggle('dark', isDark);
       document.documentElement.setAttribute('data-theme', theme);
 
-      const icon = document.getElementById('themeIcon');
-      const label = document.getElementById('themeLabel');
       const btn = document.getElementById('themeToggleBtn');
-      if (icon && label) {
-        if (theme === 'system') {
-          icon.textContent = '💻';
-          label.textContent = 'Auto';
-          if (btn) btn.title = 'Theme: System (Auto) - Click to change';
-        } else if (theme === 'light') {
-          icon.textContent = '☀️';
-          label.textContent = 'Light';
-          if (btn) btn.title = 'Theme: Light - Click to change';
-        } else {
-          icon.textContent = '🌙';
-          label.textContent = 'Dark';
-          if (btn) btn.title = 'Theme: Dark - Click to change';
-        }
+      if (btn) {
+        const title = isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme';
+        btn.title = title;
+        btn.setAttribute('aria-label', title);
       }
     }
-
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      const current = localStorage.getItem('printman_theme') || 'system';
-      if (current === 'system') {
-        applyTheme('system');
-      }
-    });
 
     // State
     const state = {
@@ -593,8 +602,9 @@
 
     // Init
     window.addEventListener('DOMContentLoaded', async () => {
-      // Sync theme button label
-      applyTheme(localStorage.getItem('printman_theme') || 'system');
+      // Sync theme button state
+      const savedTheme = localStorage.getItem('printman_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      applyTheme(savedTheme);
 
       initDropZone();
 
