@@ -6,13 +6,13 @@
 [![Download](https://img.shields.io/badge/Download-Latest%20Release-0078D6?logo=windows)](https://github.com/EslaMx7/printman/releases/latest)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/eslamx7)
 
-A small, zero-dependency Windows tool to print documents from your phone over local Wi-Fi to old USB Windows printers.
+Give your old USB printer Wi-Fi superpowers. A small, zero-dependency Windows tool to print documents from your phone over local Wi-Fi to old USB Windows printers.
 
 ---
 
 ## ⚡ TL;DR
 
-Turn any old USB Windows printer into a wireless phone printer:
+Give your old USB printer Wi-Fi superpowers:
 1. **Start the server on your Windows PC:**
    ```powershell
    ./printman serve --no-auth
