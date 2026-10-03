@@ -6,7 +6,7 @@ This document provides context, architectural constraints, and operational instr
 
 ## 1. Project Overview
 
-**Printman** is a zero-dependency, high-performance Windows CLI and mobile LAN printing platform built on modern .NET (`net10.0-windows10.0.19041.0`) with native Windows WinRT integration.
+**Printman** is a zero-dependency, high-performance Windows CLI and mobile LAN printing platform built on modern .NET (`net10.0-windows` with `TargetPlatformVersion 10.0.19041.0`) with native Windows WinRT integration.
 
 - **Primary Binary:** `printman.exe`
 - **Current State:** CLI commands, interactive wizard, PDF/Image/Text rendering, printer discovery and fuzzy matching, plus embedded mobile LAN web server (`serve`).
