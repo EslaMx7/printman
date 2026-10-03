@@ -64,6 +64,12 @@ public class PrintingWebServerHost(
         builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
         builder.Logging.AddFilter("System", LogLevel.Warning);
 
+        // Fast shutdown timeout (prevents hanging on open connections)
+        builder.Services.Configure<HostOptions>(options =>
+        {
+            options.ShutdownTimeout = TimeSpan.FromSeconds(1);
+        });
+
         // Kestrel request limits (sec-02)
         builder.WebHost.ConfigureKestrel(options =>
         {
@@ -76,19 +82,20 @@ public class PrintingWebServerHost(
         // 3. Serialized Print Queue (sec-03)
         var printQueue = Channel.CreateUnbounded<WebBatchPrintRequest>();
         int queueLength = 0;
+        using var queueCts = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
 
         _ = Task.Run(async () =>
         {
             try
             {
-                while (await printQueue.Reader.WaitToReadAsync(ct))
+                while (await printQueue.Reader.WaitToReadAsync(queueCts.Token))
                 {
                     while (printQueue.Reader.TryRead(out var batch))
                     {
                         try
                         {
                             Interlocked.Decrement(ref queueLength);
-                            await ProcessPrintBatchAsync(batch, ct);
+                            await ProcessPrintBatchAsync(batch, queueCts.Token);
                         }
                         catch (Exception ex)
                         {
@@ -395,6 +402,11 @@ public class PrintingWebServerHost(
             ctx.Response.Headers.Append("Cache-Control", "no-cache");
             ctx.Response.Headers.Append("Connection", "keep-alive");
 
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                clientCt,
+                app.Lifetime.ApplicationStopping);
+            var streamCt = linkedCts.Token;
+
             var reader = _eventHub.Subscribe();
 
             try
@@ -403,21 +415,21 @@ public class PrintingWebServerHost(
                 foreach (var evt in _eventHub.GetRecentEvents(10))
                 {
                     var json = JsonSerializer.Serialize(evt);
-                    await ctx.Response.WriteAsync($"data: {json}\n\n", clientCt);
+                    await ctx.Response.WriteAsync($"data: {json}\n\n", streamCt);
                 }
-                await ctx.Response.Body.FlushAsync(clientCt);
+                await ctx.Response.Body.FlushAsync(streamCt);
 
                 // Stream live events
-                await foreach (var evt in reader.ReadAllAsync(clientCt))
+                await foreach (var evt in reader.ReadAllAsync(streamCt))
                 {
                     var json = JsonSerializer.Serialize(evt);
-                    await ctx.Response.WriteAsync($"data: {json}\n\n", clientCt);
-                    await ctx.Response.Body.FlushAsync(clientCt);
+                    await ctx.Response.WriteAsync($"data: {json}\n\n", streamCt);
+                    await ctx.Response.Body.FlushAsync(streamCt);
                 }
             }
             catch (OperationCanceledException)
             {
-                // Client disconnected
+                // Client disconnected or server shutting down
             }
             finally
             {
@@ -521,15 +533,37 @@ public class PrintingWebServerHost(
         Console.WriteLine("\n  Live SSE status reporting enabled • Drag & drop supported");
         Console.WriteLine("  Press Ctrl+C to stop the server.\n");
 
+        int cancelPressCount = 0;
+        using var localCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        ConsoleCancelEventHandler cancelHandler = (s, e) =>
+        {
+            cancelPressCount++;
+            if (cancelPressCount >= 2)
+            {
+                Console.ResetColor();
+                Console.WriteLine("\nForced termination.");
+                Environment.Exit(0);
+            }
+
+            e.Cancel = true;
+            localCts.Cancel();
+            try { _ = app.StopAsync(); } catch { }
+        };
+
+        Console.CancelKeyPress += cancelHandler;
         try
         {
-            await app.RunAsync(ct);
+            await app.RunAsync(localCts.Token);
             return 0;
         }
         catch (OperationCanceledException)
         {
             Console.WriteLine("\nWeb server stopped.");
             return 0;
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelHandler;
         }
     }
 
