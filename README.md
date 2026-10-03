@@ -10,19 +10,6 @@ A small, zero-dependency Windows tool to print documents from your phone over lo
 
 ---
 
-## 📥 Download
-
-Download the latest pre-built binaries from [**GitHub Releases (Latest)**](https://github.com/EslaMx7/printman/releases/latest):
-
-| Package | Edition | Details |
-| :--- | :--- | :--- |
-| [**Download Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ | **Standalone (Recommended)** | Self-contained single executable (`printman.exe`). Runs out of the box on Windows 10/11 with zero installation or runtime dependencies required. |
-| [**Download Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | **Framework-Dependent** | Lightweight download (~215 KB). Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) installed. |
-
-> **Quick Start:** Extract the ZIP file and run `printman.exe` in PowerShell or Windows Terminal.
-
----
-
 ## ⚡ TL;DR
 
 Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
@@ -66,6 +53,19 @@ Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
 - **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided interactive terminal wizard.
 - **Smart Printer Search:** Type partial printer names. For example, `HP Laser` automatically finds `HP LaserJet Professional P1102`.
 - **Full Print Controls:** Set page ranges (e.g. `1:3`, `2,5`), paper sizes (`A4`, `Letter`), copies, orientation, duplex, and color mode.
+
+---
+
+## 📥 Download
+
+Pre-built Windows binaries are available on [**GitHub Releases**](https://github.com/EslaMx7/printman/releases/latest):
+
+| Package | Details |
+| :--- | :--- |
+| [**Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | Single executable, zero dependencies (no .NET required) |
+| [**Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~215 KB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
+
+---
 
 ## 📸 Interface Preview
 
