@@ -3,9 +3,23 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)]()
+[![Download](https://img.shields.io/badge/Download-Latest%20Release-0078D6?logo=windows)](https://github.com/EslaMx7/printman/releases/latest)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/eslamx7)
 
 A small, zero-dependency Windows tool to print documents from your phone over local Wi-Fi to old USB Windows printers.
+
+---
+
+## 📥 Download
+
+Download the latest pre-built binaries from [**GitHub Releases (Latest)**](https://github.com/EslaMx7/printman/releases/latest):
+
+| Package | Edition | Details |
+| :--- | :--- | :--- |
+| [**Download Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ | **Standalone (Recommended)** | Self-contained single executable (`printman.exe`). Runs out of the box on Windows 10/11 with zero installation or runtime dependencies required. |
+| [**Download Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | **Framework-Dependent** | Lightweight download (~215 KB). Requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) installed. |
+
+> **Quick Start:** Extract the ZIP file and run `printman.exe` in PowerShell or Windows Terminal.
 
 ---
 
