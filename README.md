@@ -53,6 +53,55 @@ Turn any old USB Windows printer into a wireless phone printer in 10 seconds:
 - **Smart Printer Search:** Type partial printer names. For example, `HP Laser` automatically finds `HP LaserJet Professional P1102`.
 - **Full Print Controls:** Set page ranges (e.g. `1:3`, `2,5`), paper sizes (`A4`, `Letter`), copies, orientation, duplex, and color mode.
 
+## 📸 Interface Preview
+
+### CLI Server Terminal
+<p align="center">
+  <a href="docs/images/printman_desktop_cli_dark.png">
+    <img src="docs/images/printman_desktop_cli_dark.png" alt="Printman CLI Server Running" width="100%" />
+  </a>
+</p>
+
+### 📱 Mobile Web Interface
+<table width="100%">
+  <tr>
+    <th align="center" width="50%">☀️ Light Theme</th>
+    <th align="center" width="50%">🌙 Dark Theme</th>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <a href="docs/images/printman_mobile_web_light.png">
+        <img src="docs/images/printman_mobile_web_light.png" alt="Printman Mobile Web Light Theme" width="300" />
+      </a>
+    </td>
+    <td align="center" valign="top">
+      <a href="docs/images/printman_mobile_web_dark.png">
+        <img src="docs/images/printman_mobile_web_dark.png" alt="Printman Mobile Web Dark Theme" width="300" />
+      </a>
+    </td>
+  </tr>
+</table>
+
+### 💻 Desktop Web Interface
+<table width="100%">
+  <tr>
+    <th align="center" width="50%">☀️ Light Theme</th>
+    <th align="center" width="50%">🌙 Dark Theme</th>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <a href="docs/images/printman_desktop_web_light.png">
+        <img src="docs/images/printman_desktop_web_light.png" alt="Printman Desktop Web Light Theme" />
+      </a>
+    </td>
+    <td align="center" valign="top">
+      <a href="docs/images/printman_desktop_web_dark.png">
+        <img src="docs/images/printman_desktop_web_dark.png" alt="Printman Desktop Web Dark Theme" />
+      </a>
+    </td>
+  </tr>
+</table>
+
 ---
 
 ## 🚀 How to Use It
