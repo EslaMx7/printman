@@ -62,8 +62,8 @@ Pre-built Windows binaries are available on [**GitHub Releases**](https://github
 
 | Package | Details |
 | :--- | :--- |
-| [**Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | Single executable, zero dependencies (no .NET required) |
-| [**Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~215 KB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
+| [**Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | Single executable (~60 MB), (no .NET required) |
+| [**Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~6 MB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
 > **Quick Start:** Extract the ZIP file and run `printman.exe` directly or from Windows Terminal.
 
 ---
