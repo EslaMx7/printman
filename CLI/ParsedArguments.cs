@@ -26,6 +26,7 @@ public class ParsedArguments
     public string? ServerOutputDirectory { get; set; }
     public bool SharePrinters { get; set; } = false;
     public List<string> SharedPrinterNames { get; set; } = [];
+    public bool SelectSharedPrinters { get; set; } = false;
     public int IppPort { get; set; } = 631;
     public bool EnableMdns { get; set; } = true;
     public bool IppAllowAnySource { get; set; } = false;

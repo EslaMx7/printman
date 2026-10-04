@@ -103,6 +103,7 @@ Printman/
 │   └── CliHandler.cs
 ├── Interactive/                 # Terminal UI & Interactive Wizard
 │   ├── ConsoleUi.cs                      # ANSI colors, tables, banner
+│   ├── PrinterPicker.cs                  # Multi-select printer checklist (--share-select, wizard)
 │   └── InteractiveWizard.cs              # Step-by-step guided printing prompt
 ├── Printman.csproj              # Project configuration
 ├── Program.cs                   # Composition Root & DI configuration
@@ -125,6 +126,7 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
    - `--max-upload-mb <n>`: Maximum file upload size limit in MB (default: `50`).
    - `--cache-limit-mb <n>`: Total disk cache limit in MB before LRU eviction (default: `500`).
    - `--share [printer]`: Opt-in network printer sharing; repeatable; no name = Windows default printer. Advertised as `Printman - <printer>`.
+   - `--share-select`: Pick printers to share from a checklist (`Interactive/PrinterPicker.cs`, run by `CliHandler` before the server starts; `--share` names are preselected; falls back to typed numbers when stdin/stdout are redirected).
    - `--ipp-port <n>`: IPP port (default: `631`; falls back to the web port if busy).
    - `--no-mdns`: Serve IPP without mDNS / DNS-SD announcements.
    - Hidden/dev: `--output-dir <dir>` (print every server job to a file), `--ipp-allow-any-source`.

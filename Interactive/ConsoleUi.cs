@@ -215,6 +215,7 @@ COMMANDS:
                                          --cache-limit-mb <n> (default: 500)
                                 Network printer sharing (opt-in, no PIN for native printing):
                                          --share [printer] (repeatable; default printer if no name)
+                                         --share-select (pick printers to share from a list)
                                                 Shows up as ""Printman - <printer>"" in iPhone/iPad
                                                 (AirPrint), Android, Windows, macOS & Linux dialogs
                                          --ipp-port <n> (default: 631), --no-mdns (no discovery)

@@ -108,11 +108,20 @@ public class InteractiveWizard(
 
         if (share)
         {
-            Console.Write("Printers to share, comma-separated (Enter for the default printer): ");
-            var namesInput = Console.ReadLine()?.Trim();
-            if (!string.IsNullOrEmpty(namesInput))
+            var printers = _printerDiscovery.GetPrinters();
+            var defaultName = printers.FirstOrDefault(p => p.IsDefault)?.Name;
+            var picked = printers.Count == 0
+                ? []
+                : PrinterPicker.PickMany(printers, defaultName != null ? [defaultName] : [], "Select the printers to share on the network:");
+
+            if (picked == null || picked.Count == 0)
             {
-                sharedPrinters.AddRange(namesInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                ConsoleUi.PrintWarning("No printers selected; starting the web server without network printer sharing.");
+                share = false;
+            }
+            else
+            {
+                sharedPrinters.AddRange(picked.Select(p => p.Name));
             }
         }
 

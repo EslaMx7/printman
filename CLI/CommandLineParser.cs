@@ -142,6 +142,12 @@ public static class CommandLineParser
                         }
                         break;
 
+                    case "--share-select" or "-share-select":
+                        // Pick printers from an interactive checklist (names from --share are preselected)
+                        result.SharePrinters = true;
+                        result.SelectSharedPrinters = true;
+                        break;
+
                     case "--ipp-port" or "-ipp-port":
                         var ippPortVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
                         if (int.TryParse(ippPortVal, out int ippPort) && ippPort > 0 && ippPort <= 65535)

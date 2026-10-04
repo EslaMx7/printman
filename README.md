@@ -172,6 +172,9 @@ printman.exe serve --share
 
 # Share specific printers (partial names work; repeat --share for each)
 printman.exe serve --share "HP Laser" --share "Canon"
+
+# Pick the printers to share from a checklist (↑/↓, Space, Enter)
+printman.exe serve --share-select
 ```
 
 - **iPhone / iPad / Mac:** Share → Print → pick `Printman - HP LaserJet ...` (AirPrint).
@@ -285,6 +288,7 @@ The wizard prompts you step-by-step:
 | `--max-upload-mb`| Maximum file upload size in MB | `50` |
 | `--cache-limit-mb`| Maximum disk cache size in MB before cleanup | `500` |
 | `--share [printer]` | Share a printer as a network printer (repeatable; no name = default printer) | Off |
+| `--share-select` | Choose the printers to share from an interactive checklist (`--share` names start ticked) | Off |
 | `--ipp-port` | Port for network printing (IPP) | `631` |
 | `--no-mdns` | Do not announce shared printers; devices add them by URL | Announce on |
 

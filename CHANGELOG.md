@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Network printer sharing (`printman serve --share [printer]`, repeatable): shared printers appear as `Printman - <printer>` in the native print dialogs of iOS/iPadOS (AirPrint), Android (Mopria / Default Print Service), Windows, macOS and Linux.
 - IPP Everywhere / AirPrint print server (port 631, `--ipp-port`) supporting Print-Job, Validate-Job, Create-Job, Send-Document, Close-Job, Get-Jobs, Get-Job-Attributes, Cancel-Job, Cancel-My-Jobs, Identify-Printer and Get-Printer-Attributes.
+- `printman serve --share-select`: choose the printers to share from an interactive checklist (also used by the wizard); `--share` names start ticked.
 - Built-in mDNS / DNS-SD responder (`_ipp._tcp` with `_universal` and `_print` subtypes); disable with `--no-mdns`.
 - PWG Raster (`.pwg`) and Apple Raster (`.urf`) renderers.
 - Read-only Windows Firewall check that prints the exact `netsh` commands when inbound printing traffic looks blocked.
