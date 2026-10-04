@@ -101,6 +101,21 @@ public class InteractiveWizard(
             }
         }
 
+        Console.Write("Share as a network printer (AirPrint / Mopria / Windows)? [y/N] (default No): ");
+        var shareInput = Console.ReadLine()?.Trim().ToLowerInvariant();
+        bool share = shareInput is "y" or "yes";
+        var sharedPrinters = new List<string>();
+
+        if (share)
+        {
+            Console.Write("Printers to share, comma-separated (Enter for the default printer): ");
+            var namesInput = Console.ReadLine()?.Trim();
+            if (!string.IsNullOrEmpty(namesInput))
+            {
+                sharedPrinters.AddRange(namesInput.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            }
+        }
+
         using var cts = new CancellationTokenSource();
         ConsoleCancelEventHandler cancelHandler = (s, e) =>
         {
@@ -111,14 +126,13 @@ public class InteractiveWizard(
 
         try
         {
-            await _webServer.RunAsync(
-                port: port,
-                bindAddress: "0.0.0.0",
-                pin: pin,
-                requireAuth: requireAuth,
-                maxUploadMb: 50,
-                cacheLimitMb: 500,
-                ct: cts.Token);
+            await _webServer.RunAsync(new ServerOptions
+            {
+                Port = port,
+                Pin = pin,
+                RequireAuth = requireAuth,
+                Share = new ShareOptions { Enabled = share, Printers = sharedPrinters }
+            }, cts.Token);
         }
         finally
         {

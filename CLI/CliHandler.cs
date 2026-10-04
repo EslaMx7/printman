@@ -30,13 +30,7 @@ public class CliHandler(
                 return HandlePrinterInfo(parsedArgs.QueryTarget);
 
             case CliCommandType.Server:
-                return await _webServer.RunAsync(
-                    parsedArgs.ServerPort,
-                    parsedArgs.BindAddress,
-                    parsedArgs.ServerPin,
-                    parsedArgs.RequireAuth,
-                    parsedArgs.MaxUploadMb,
-                    parsedArgs.CacheLimitMb);
+                return await _webServer.RunAsync(parsedArgs.ToServerOptions());
 
             case CliCommandType.Queue:
                 return await HandleQueueAsync(parsedArgs.TargetPrinterName, parsedArgs.WatchQueue);

@@ -126,6 +126,49 @@ public static class CommandLineParser
                             throw new FormatException($"Invalid cache limit MB: '{cacheMbVal}'. Must be an integer > 0.");
                         }
                         break;
+
+                    case "--share" or "-share":
+                        // Optional value: "--share" alone shares the default printer; repeat to share several
+                        result.SharePrinters = true;
+                        var shareVal = value;
+                        if (shareVal == null && j + 1 < args.Length && !args[j + 1].StartsWith('-'))
+                        {
+                            shareVal = args[++j].Trim('"', '\'');
+                        }
+                        if (!string.IsNullOrWhiteSpace(shareVal) &&
+                            !result.SharedPrinterNames.Contains(shareVal, StringComparer.OrdinalIgnoreCase))
+                        {
+                            result.SharedPrinterNames.Add(shareVal);
+                        }
+                        break;
+
+                    case "--ipp-port" or "-ipp-port":
+                        var ippPortVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
+                        if (int.TryParse(ippPortVal, out int ippPort) && ippPort > 0 && ippPort <= 65535)
+                        {
+                            result.IppPort = ippPort;
+                        }
+                        else
+                        {
+                            throw new FormatException($"Invalid IPP port number: '{ippPortVal}'. Must be an integer between 1 and 65535.");
+                        }
+                        break;
+
+                    case "--no-mdns" or "-no-mdns":
+                        result.EnableMdns = false;
+                        break;
+
+                    case "--ipp-allow-any-source" or "-ipp-allow-any-source":
+                        result.IppAllowAnySource = true;
+                        break;
+
+                    case "--output-dir" or "-output-dir":
+                        var outDirVal = value ?? (j + 1 < args.Length ? args[++j].Trim('"', '\'') : null);
+                        if (!string.IsNullOrWhiteSpace(outDirVal))
+                        {
+                            result.ServerOutputDirectory = outDirVal;
+                        }
+                        break;
                 }
             }
             return result;

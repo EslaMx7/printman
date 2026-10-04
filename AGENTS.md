@@ -40,6 +40,13 @@ Printman/
 │   │   ├── IFileCacheService.cs         # Content-addressed hashing & LRU cache
 │   │   ├── IPrintEventHub.cs            # SSE streaming abstraction
 │   │   ├── IPrintQueueService.cs        # Spooler & pipeline queue management
+│   │   ├── IPrintJobPipeline.cs         # Serialized print queue shared by web UI and IPP
+│   │   ├── ISharedPrinterRegistry.cs    # Printers shared on the network (+ cached caps/status)
+│   │   ├── IIppRequestHandler.cs        # IPP operation processing (transport independent)
+│   │   ├── IIppJobStore.cs              # IPP job ids and state tracking
+│   │   ├── IDnsSdServiceFactory.cs      # Shared printers -> DNS-SD service descriptions
+│   │   ├── IServiceAdvertiser.cs        # mDNS / DNS-SD advertising
+│   │   ├── IFirewallInspector.cs        # Read-only inbound firewall check
 │   │   └── IPrintService.cs             # Print orchestration and spooling
 │   └── Models/                  # Pure data structures / DTOs
 │       ├── PrintJobRequest.cs           # Agnostic print job payload
@@ -50,7 +57,11 @@ Printman/
 │       ├── PaperSizeOption.cs           # Name, width/height mm
 │       ├── ServerModels.cs              # Web upload, batch print, and SSE event payloads
 │       ├── PageRange.cs                 # Expression parser (1:3, 1-3, 1,3,5, all)
-│       └── PrintEnums.cs                # Orientation, Duplex, ColorMode
+│       ├── PrintEnums.cs                # Orientation, Duplex, ColorMode
+│       ├── ServerOptions.cs             # `serve` options incl. ShareOptions (--share, --ipp-port)
+│       ├── PipelineModels.cs            # PipelineBatch / PipelineItem / PipelineTicket
+│       ├── IppModels.cs                 # IPP message/attribute model, IppJob, SharedPrinter, settings
+│       └── DnsSdService.cs              # DNS-SD service instance description
 ├── Services/                    # Concrete implementations
 │   ├── WindowsPrinterDiscoveryService.cs # System.Drawing.Printing discovery
 │   ├── WindowsPrintQueueService.cs       # winspool.drv native spooler & pipeline manager
@@ -59,12 +70,30 @@ Printman/
 │   ├── FileCacheService.cs               # SHA-256 disk cache & LRU quota manager
 │   ├── PrintEventHub.cs                  # SSE subscription & channel broadcast
 │   ├── WindowsPrintService.cs            # PrintDocument spooling & page loop
+│   ├── PrintJobPipeline.cs               # Serialized queue worker (web + IPP jobs)
+│   ├── SharedPrinterRegistry.cs          # Resolves --share names, slugs, stable UUIDs
+│   ├── Ipp/
+│   │   ├── IppMessageReader.cs / IppMessageWriter.cs  # application/ipp binary codec
+│   │   ├── IppRequestHandler.cs          # IPP Everywhere operations -> pipeline
+│   │   ├── IppPrinterAttributeBuilder.cs # Printer description attributes
+│   │   ├── IppJobStore.cs                # Job ids / states
+│   │   ├── IppDocumentFormats.cs         # MIME <-> extension, magic-byte sniffing
+│   │   ├── PwgMediaMapper.cs             # Windows paper sizes <-> PWG media names
+│   │   └── IppDnsSdServiceFactory.cs     # _ipp._tcp TXT records (AirPrint / Mopria keys)
+│   ├── Discovery/
+│   │   ├── DnsMessage.cs                 # DNS wire format (names, compression, records)
+│   │   ├── MdnsResponder.cs              # Per-interface mDNS responder on UDP 5353
+│   │   └── WindowsFirewallInspector.cs   # HNetCfg.FwPolicy2 read-only rule check
 │   └── Renderers/
 │       ├── PdfDocumentRenderer.cs        # WinRT Windows.Data.Pdf (300 DPI)
 │       ├── ImageDocumentRenderer.cs      # GDI+ image rasterization
-│       └── TextDocumentRenderer.cs       # Monospaced line-wrapped text
+│       ├── TextDocumentRenderer.cs       # Monospaced line-wrapped text
+│       ├── RasterDocumentRenderer.cs     # Shared CUPS-style raster decoder base
+│       ├── PwgRasterDocumentRenderer.cs  # PWG Raster (.pwg)
+│       └── UrfDocumentRenderer.cs        # Apple Raster / AirPrint (.urf)
 ├── Server/                      # Embedded Kestrel LAN Web Server
-│   ├── PrintingWebServerHost.cs          # Minimal API routes & queue worker
+│   ├── PrintingWebServerHost.cs          # Minimal API routes, listeners, banner
+│   ├── IppEndpoints.cs                   # /ipp/print routes (LAN filter, body limits)
 │   ├── WebAssets.cs                      # In-assembly embedded resource loader & live-reload
 │   └── Web/
 │       └── index.html                    # Mobile-responsive web SPA & CSS/JS
@@ -95,6 +124,10 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
    - `--no-auth` / `--allow-anonymous`: Disable PIN authentication (open access mode).
    - `--max-upload-mb <n>`: Maximum file upload size limit in MB (default: `50`).
    - `--cache-limit-mb <n>`: Total disk cache limit in MB before LRU eviction (default: `500`).
+   - `--share [printer]`: Opt-in network printer sharing; repeatable; no name = Windows default printer. Advertised as `Printman - <printer>`.
+   - `--ipp-port <n>`: IPP port (default: `631`; falls back to the web port if busy).
+   - `--no-mdns`: Serve IPP without mDNS / DNS-SD announcements.
+   - Hidden/dev: `--output-dir <dir>` (print every server job to a file), `--ipp-allow-any-source`.
 2. **Features & Security Architecture:**
    - Detects local LAN IPv4 network interfaces and displays mobile-accessible URLs with quick-auth token links (e.g. `http://192.168.1.X:5000/?pin=123456`).
    - Mobile-first responsive web SPA in `Server/Web/index.html` (embedded into assembly via MSBuild `<EmbeddedResource>` and loaded via in-memory cached loader `Server/WebAssets.cs` with development live-reload support; auto/manual light & dark theme, PIN lock screen, drag-and-drop, multi-file queue, printer picker, paper size filter, copies, duplex, and color options).
@@ -111,7 +144,13 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
    - **LRU Cache Quota Eviction (`sec-05`):**
      - `IFileCacheService` tracks disk usage against `MaxCacheSizeBytes` (default 500 MB) and evicts oldest unreferenced files on disk.
    - **Serialized Print Spooling Queue (`sec-06`):**
-     - Background `Channel<WebBatchPrintRequest>` queue worker serializes concurrent print jobs to prevent Windows GDI+/spooler race conditions and thread pool starvation.
+     - `IPrintJobPipeline` (`Services/PrintJobPipeline.cs`) serializes print jobs from both the web UI and IPP clients to prevent Windows GDI+/spooler race conditions and thread pool starvation. Enqueue returns a `PipelineTicket` (state, cancel, completion).
+   - **Network Printer Sharing (`--share`, IPP Everywhere / AirPrint / Mopria):**
+     - Second Kestrel listener on the IPP port; a port-separation middleware serves only `/ipp/*` there and never on the web port.
+     - `POST /ipp/print/{slug}` (`/ipp/print` = first shared printer). Unauthenticated by design (native dialogs cannot send a PIN); restricted to private source IPs and `Content-Type: application/ipp`.
+     - Documents are sniffed by magic bytes (PDF, JPEG, PNG, PWG `RaS2`, URF `UNIRAST`) and cached via `IFileCacheService.StoreFileAsync(..., maxFileSizeBytes, ...)`.
+     - IPP jobs render with `PrintJobRequest.FullPage = true` (whole sheet, not the 1-inch default margins).
+     - `MdnsResponder` binds UDP 5353 per IPv4 interface (shared with Windows/Bonjour), probes, announces `_ipp._tcp` + `_universal` / `_print` subtypes, answers queries and sends goodbyes on shutdown. `_universal` and `URF=` are only advertised when a `.urf` renderer is registered.
    - **Generic Sanitized Error Responses (`sec-03`):**
      - Internal stack traces and file paths stripped from API client responses; detailed traces logged to console only.
    - **Fast Hash File Cache (`IFileCacheService` / `FileCacheService`):**
@@ -148,7 +187,13 @@ When verifying changes:
    dotnet run -- info "HP Laser"
    dotnet run -- "tests/fixtures/test_sample.pdf" -printer "XPS" -pages 1:2 -output "test.xps"
    ```
-4. **Publishing standalone binary:**
+4. **Network printer sharing smoke test (headless):**
+   ```powershell
+   dotnet run -- serve --no-auth --share "Microsoft Print to PDF" --output-dir out
+   dns-sd -B _ipp._tcp,_universal          # Bonjour tool, if installed: lists "Printman - Microsoft Print to PDF"
+   ```
+   Send IPP requests (Get-Printer-Attributes / Print-Job with `application/ipp` bodies) to `http://localhost:631/ipp/print/microsoft-print-to-pdf`; jobs land in `out/` as PDFs.
+5. **Publishing standalone binary:**
    ```powershell
    dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
    ```

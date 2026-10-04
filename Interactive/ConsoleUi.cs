@@ -213,6 +213,11 @@ COMMANDS:
                                          --no-auth (disable PIN requirement),
                                          --max-upload-mb <n> (default: 50),
                                          --cache-limit-mb <n> (default: 500)
+                                Network printer sharing (opt-in, no PIN for native printing):
+                                         --share [printer] (repeatable; default printer if no name)
+                                                Shows up as ""Printman - <printer>"" in iPhone/iPad
+                                                (AirPrint), Android, Windows, macOS & Linux dialogs
+                                         --ipp-port <n> (default: 631), --no-mdns (no discovery)
   queue, q [printer] [--watch]  Inspect real-time Windows Spooler & pipeline queue
   cancel <job-id> [-p <name>]   Cancel a specific print job by ID
   purge [printer]               Purge / cancel all jobs on a printer queue
@@ -236,6 +241,7 @@ SUPPORTED FILE TYPES:
   PDF documents:                .pdf (Native high-resolution WinRT engine)
   Images:                       .png, .jpg, .jpeg, .bmp, .gif, .tiff
   Text / Code files:            .txt, .log, .csv, .json, .md, .xml, .yaml
+  Driverless raster:            .pwg (PWG Raster), .urf (Apple Raster / AirPrint)
 
 EXAMPLES:
   printman.exe ""./doc.pdf""
@@ -255,6 +261,9 @@ EXAMPLES:
 
   printman.exe list
       Lists all detected printers on this machine.
+
+  printman.exe serve --share ""HP Laser"" --share ""Canon""
+      Web server plus two network printers that phones and PCs find in their print dialogs.
 
   printman.exe info ""HP LaserJet""
       Shows paper trays, duplex support, and capabilities of the printer.

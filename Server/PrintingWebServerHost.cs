@@ -4,7 +4,6 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Threading.Channels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -19,34 +18,66 @@ namespace Printman.Server;
 
 public class PrintingWebServerHost(
     IPrinterDiscoveryService printerDiscovery,
-    IPrintService printService,
     IDocumentRendererResolver rendererResolver,
     IFileCacheService fileCache,
     IPrintEventHub eventHub,
-    IPrintQueueService queueService)
+    IPrintQueueService queueService,
+    IPrintJobPipeline pipeline,
+    ISharedPrinterRegistry sharedPrinters,
+    IIppRequestHandler ippHandler,
+    IppServerSettings ippSettings,
+    IDnsSdServiceFactory dnsSdServices,
+    IServiceAdvertiser advertiser,
+    IFirewallInspector firewall)
 {
     private readonly IPrinterDiscoveryService _printerDiscovery = printerDiscovery;
-    private readonly IPrintService _printService = printService;
     private readonly IDocumentRendererResolver _rendererResolver = rendererResolver;
     private readonly IFileCacheService _fileCache = fileCache;
     private readonly IPrintEventHub _eventHub = eventHub;
     private readonly IPrintQueueService _queueService = queueService;
+    private readonly IPrintJobPipeline _pipeline = pipeline;
+    private readonly ISharedPrinterRegistry _sharedPrinters = sharedPrinters;
+    private readonly IIppRequestHandler _ippHandler = ippHandler;
+    private readonly IppServerSettings _ippSettings = ippSettings;
+    private readonly IDnsSdServiceFactory _dnsSdServices = dnsSdServices;
+    private readonly IServiceAdvertiser _advertiser = advertiser;
+    private readonly IFirewallInspector _firewall = firewall;
 
     public Task<int> RunAsync(int port, string bindAddress, CancellationToken ct) =>
-        RunAsync(port, bindAddress, pin: null, requireAuth: true, maxUploadMb: 50, cacheLimitMb: 500, ct);
+        RunAsync(new ServerOptions { Port = port, BindAddress = bindAddress }, ct);
 
-    public async Task<int> RunAsync(
+    public Task<int> RunAsync(
         int port = 5000,
         string bindAddress = "0.0.0.0",
         string? pin = null,
         bool requireAuth = true,
         int maxUploadMb = 50,
         int cacheLimitMb = 500,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        RunAsync(new ServerOptions
+        {
+            Port = port,
+            BindAddress = bindAddress,
+            Pin = pin,
+            RequireAuth = requireAuth,
+            MaxUploadMb = maxUploadMb,
+            CacheLimitMb = cacheLimitMb
+        }, ct);
+
+    public async Task<int> RunAsync(ServerOptions options, CancellationToken ct = default)
     {
+        int port = options.Port;
+        string bindAddress = options.BindAddress;
+        string? pin = options.Pin;
+        bool requireAuth = options.RequireAuth;
+        int maxUploadMb = options.MaxUploadMb;
+
         // 1. Configure storage bounds and quotas (sec-02)
         _fileCache.MaxFileSizeBytes = maxUploadMb * 1024L * 1024L;
-        _fileCache.MaxCacheSizeBytes = cacheLimitMb * 1024L * 1024L;
+        _fileCache.MaxCacheSizeBytes = options.CacheLimitMb * 1024L * 1024L;
+        _pipeline.OutputDirectory = string.IsNullOrWhiteSpace(options.OutputDirectory)
+            ? null
+            : Path.GetFullPath(options.OutputDirectory);
 
         // 2. Resolve pairing PIN (sec-01)
         if (requireAuth && string.IsNullOrWhiteSpace(pin))
@@ -57,6 +88,39 @@ public class PrintingWebServerHost(
         var activeSessions = new ConcurrentDictionary<string, DateTime>(StringComparer.Ordinal);
         var lanIps = GetLocalLanIpv4Addresses();
 
+        // 3. Network printer sharing (IPP Everywhere / AirPrint / Mopria) - opt-in
+        var share = options.Share;
+        bool sharing = false;
+        int ippPort = share.IppPort;
+        var shareWarnings = new List<string>();
+        if (share.Enabled)
+        {
+            foreach (var missing in _sharedPrinters.Configure(share.Printers))
+            {
+                shareWarnings.Add($"Printer '{missing}' was not found and will not be shared.");
+            }
+
+            if (_sharedPrinters.Printers.Count == 0)
+            {
+                shareWarnings.Add("No printer could be shared (is a default printer set?). Network printing is disabled.");
+            }
+            else
+            {
+                sharing = true;
+                if (ippPort != port && !IsTcpPortAvailable(bindAddress, ippPort))
+                {
+                    shareWarnings.Add($"IPP port {ippPort} is already in use; serving network printing on port {port} instead.");
+                    ippPort = port;
+                }
+
+                _ippSettings.WebPort = port;
+                _ippSettings.IppPort = ippPort;
+                _ippSettings.MaxJobBytes = Math.Min(share.MaxJobMb, options.CacheLimitMb) * 1024L * 1024L;
+                _ippSettings.StartedAt = DateTime.UtcNow;
+            }
+        }
+        bool separateIppPort = sharing && ippPort != port;
+
         var builder = WebApplication.CreateBuilder();
 
         // Quiet logging
@@ -65,49 +129,27 @@ public class PrintingWebServerHost(
         builder.Logging.AddFilter("System", LogLevel.Warning);
 
         // Fast shutdown timeout (prevents hanging on open connections)
-        builder.Services.Configure<HostOptions>(options =>
+        builder.Services.Configure<HostOptions>(hostOptions =>
         {
-            options.ShutdownTimeout = TimeSpan.FromSeconds(1);
+            hostOptions.ShutdownTimeout = TimeSpan.FromSeconds(1);
         });
 
-        // Kestrel request limits (sec-02)
-        builder.WebHost.ConfigureKestrel(options =>
+        // Kestrel request limits (sec-02); IPP requests raise their own limit per request
+        builder.WebHost.ConfigureKestrel(kestrel =>
         {
-            options.Listen(IPAddress.Parse(bindAddress), port);
-            options.Limits.MaxRequestBodySize = maxUploadMb * 1024L * 1024L;
+            kestrel.Listen(IPAddress.Parse(bindAddress), port);
+            if (separateIppPort)
+            {
+                kestrel.Listen(IPAddress.Parse(bindAddress), ippPort);
+            }
+            kestrel.Limits.MaxRequestBodySize = maxUploadMb * 1024L * 1024L;
         });
 
         var app = builder.Build();
 
-        // 3. Serialized Print Queue (sec-03)
-        var printQueue = Channel.CreateUnbounded<WebBatchPrintRequest>();
-        int queueLength = 0;
+        // 3. Serialized Print Queue (sec-06)
         using var queueCts = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                while (await printQueue.Reader.WaitToReadAsync(queueCts.Token))
-                {
-                    while (printQueue.Reader.TryRead(out var batch))
-                    {
-                        try
-                        {
-                            Interlocked.Decrement(ref queueLength);
-                            await ProcessPrintBatchAsync(batch, queueCts.Token);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.ForegroundColor = ConsoleColor.Red;
-                            Console.WriteLine($"[ERROR] Print batch execution error: {ex.Message}");
-                            Console.ResetColor();
-                        }
-                    }
-                }
-            }
-            catch (OperationCanceledException) { }
-        }, ct);
+        _ = Task.Run(() => _pipeline.RunAsync(queueCts.Token), ct);
 
         // 4. Background Spooler Queue Observer
         _ = Task.Run(async () =>
@@ -213,7 +255,23 @@ public class PrintingWebServerHost(
             return true;
         }
 
-        // Security Middleware (sec-01, sec-04)
+        // Port separation: the IPP port only serves /ipp/*, the web port never does
+        if (separateIppPort)
+        {
+            app.Use(async (ctx, next) =>
+            {
+                bool isIppPath = ctx.Request.Path.StartsWithSegments("/ipp", StringComparison.OrdinalIgnoreCase);
+                bool onIppPort = ctx.Connection.LocalPort == ippPort;
+                if (isIppPath != onIppPort)
+                {
+                    ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return;
+                }
+                await next();
+            });
+        }
+
+        // Security Middleware (sec-01, sec-04); IPP lives outside /api/ and is LAN-filtered in IppEndpoints
         app.Use(async (ctx, next) =>
         {
             var path = ctx.Request.Path.Value ?? "";
@@ -251,6 +309,12 @@ public class PrintingWebServerHost(
 
             await next();
         });
+
+        // Network printer endpoint (no PIN: native print dialogs cannot send one)
+        if (sharing)
+        {
+            IppEndpoints.Map(app, _ippHandler, _ippSettings, share.AllowAnySource);
+        }
 
         // 1. Root SPA & Favicon
         app.MapGet("/", async ctx =>
@@ -393,8 +457,8 @@ public class PrintingWebServerHost(
                 return Results.BadRequest(new { error = "No items specified to print." });
             }
 
-            int currentPos = Interlocked.Increment(ref queueLength);
-            printQueue.Writer.TryWrite(req);
+            _pipeline.Enqueue(ToPipelineBatch(req));
+            int currentPos = Math.Max(1, _pipeline.PendingCount);
 
             _eventHub.Publish(new PrintEvent
             {
@@ -542,6 +606,70 @@ public class PrintingWebServerHost(
         }
         Console.ResetColor();
 
+        // Network printer advertising (mDNS / DNS-SD)
+        bool advertising = false;
+        if (sharing && share.EnableMdns)
+        {
+            _ippSettings.MdnsHostName = _advertiser.HostName;
+            try
+            {
+                await _advertiser.StartAsync(_dnsSdServices.Create(_sharedPrinters.Printers), ct);
+                advertising = true;
+                shareWarnings.AddRange(_advertiser.Warnings);
+            }
+            catch (Exception ex)
+            {
+                _ippSettings.MdnsHostName = null;
+                shareWarnings.Add($"Network discovery (mDNS) could not start: {ex.Message}. Devices can still add the printer by URL.");
+            }
+        }
+
+        if (sharing)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"\n  [NETWORK PRINTERS]  IPP port: {ippPort}");
+            Console.ResetColor();
+
+            foreach (var shared in _sharedPrinters.Printers)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"    {shared.DisplayName}");
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                if (advertising)
+                {
+                    Console.WriteLine($"      ipp://{_advertiser.HostName}:{ippPort}/{shared.ResourcePath}");
+                }
+                foreach (var ip in lanIps.Take(2))
+                {
+                    Console.WriteLine($"      ipp://{ip}:{ippPort}/{shared.ResourcePath}");
+                }
+                Console.ResetColor();
+            }
+
+            Console.WriteLine(advertising
+                ? "  Discoverable from iPhone/iPad (AirPrint), Android, Windows, macOS and Linux print dialogs."
+                : "  Discovery is off (--no-mdns): add the printer on each device using one of the URLs above.");
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("  Anyone on this network can print to these printers without the PIN.");
+            Console.ResetColor();
+
+            var firewallHints = _firewall.CheckInboundAccess(ippPort, advertising);
+            if (firewallHints.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                foreach (var hint in firewallHints)
+                {
+                    Console.WriteLine($"  {hint}");
+                }
+                Console.ResetColor();
+            }
+        }
+
+        foreach (var warning in shareWarnings)
+        {
+            ConsoleUi.PrintWarning(warning);
+        }
+
         Console.WriteLine("\n  Live SSE status reporting enabled • Drag & drop supported");
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Write("  Enjoying Printman? If this helped you, a coffee is warmly appreciated: ");
@@ -581,199 +709,75 @@ public class PrintingWebServerHost(
         finally
         {
             Console.CancelKeyPress -= cancelHandler;
+            if (advertising)
+            {
+                // Goodbye packets remove the printers from devices' lists right away
+                try { await _advertiser.StopAsync(); } catch { }
+            }
         }
     }
 
-    private async Task ProcessPrintBatchAsync(WebBatchPrintRequest batch, CancellationToken ct)
+    private static bool IsTcpPortAvailable(string bindAddress, int port)
     {
-        var targetPrinterName = batch.Printer;
-        var printer = !string.IsNullOrWhiteSpace(targetPrinterName)
-            ? _printerDiscovery.FindPrinter(targetPrinterName)
-            : _printerDiscovery.GetDefaultPrinter();
-
-        if (printer == null)
+        try
         {
-            _eventHub.Publish(new PrintEvent
-            {
-                Type = "error",
-                Message = $"Target printer '{targetPrinterName}' could not be resolved."
-            });
-            return;
+            var probe = new TcpListener(IPAddress.Parse(bindAddress), port);
+            probe.Start();
+            probe.Stop();
+            return true;
         }
-
-        _eventHub.Publish(new PrintEvent
+        catch (SocketException)
         {
-            Type = "queued",
-            Printer = printer.Name,
-            Message = $"Starting print queue ({batch.Items.Count} document(s)) on '{printer.Name}'..."
-        });
+            return false;
+        }
+    }
 
-        int itemIndex = 0;
-        foreach (var item in batch.Items)
+    private static PipelineBatch ToPipelineBatch(WebBatchPrintRequest req) => new()
+    {
+        Printer = req.Printer,
+        Source = "web",
+        Items = req.Items.Select(item =>
         {
-            if (ct.IsCancellationRequested) break;
-            itemIndex++;
-
-            var cachedFile = _fileCache.GetFile(item.FileId);
-            if (cachedFile == null)
-            {
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "error",
-                    Message = $"File ID '{item.FileId}' not found in cache. Skipping."
-                });
-                continue;
-            }
-
-            var orientation = item.Orientation?.ToLowerInvariant() switch
-            {
-                "portrait" => PrintOrientation.Portrait,
-                "landscape" => PrintOrientation.Landscape,
-                _ => PrintOrientation.Auto
-            };
-
-            var duplex = item.Duplex?.ToLowerInvariant() switch
-            {
-                "simplex" => PrintDuplex.Simplex,
-                "vertical" => PrintDuplex.Vertical,
-                "horizontal" => PrintDuplex.Horizontal,
-                _ => PrintDuplex.Default
-            };
-
-            var color = item.Color?.ToLowerInvariant() switch
-            {
-                "color" => PrintColorMode.Color,
-                "mono" or "monochrome" => PrintColorMode.Monochrome,
-                _ => PrintColorMode.Default
-            };
-
             PageRange pageRange = PageRange.All;
             if (!string.IsNullOrWhiteSpace(item.Pages))
             {
                 try { pageRange = PageRange.Parse(item.Pages); } catch { }
             }
 
-            var printRequest = new PrintJobRequest
+            return new PipelineItem
             {
-                FilePath = cachedFile.CachedFilePath,
-                TargetPrinterName = printer.Name,
+                FileId = item.FileId,
                 PageRange = pageRange,
-                PaperSizeName = item.PaperSize,
                 Copies = Math.Max(1, item.Copies),
-                Orientation = orientation,
-                Duplex = duplex,
-                ColorMode = color,
+                PaperSizeName = item.PaperSize,
+                Orientation = item.Orientation?.ToLowerInvariant() switch
+                {
+                    "portrait" => PrintOrientation.Portrait,
+                    "landscape" => PrintOrientation.Landscape,
+                    _ => PrintOrientation.Auto
+                },
+                Duplex = item.Duplex?.ToLowerInvariant() switch
+                {
+                    "simplex" => PrintDuplex.Simplex,
+                    "vertical" => PrintDuplex.Vertical,
+                    "horizontal" => PrintDuplex.Horizontal,
+                    _ => PrintDuplex.Default
+                },
+                ColorMode = item.Color?.ToLowerInvariant() switch
+                {
+                    "color" => PrintColorMode.Color,
+                    "mono" or "monochrome" => PrintColorMode.Monochrome,
+                    _ => PrintColorMode.Default
+                },
                 FitToPage = true
             };
-
-            int totalPages = 1;
-            try
-            {
-                var renderer = _rendererResolver.Resolve(cachedFile.CachedFilePath);
-                totalPages = await renderer.GetPageCountAsync(cachedFile.CachedFilePath);
-            }
-            catch { }
-
-            var pipelineId = Guid.NewGuid().ToString("N")[..8];
-            using var itemCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            _queueService.RegisterPipelineJob(pipelineId, printer.Name, cachedFile.OriginalFileName, totalPages, itemCts);
-
-            _eventHub.Publish(new PrintEvent
-            {
-                Type = "queue_updated",
-                Printer = printer.Name,
-                Message = $"Job '{cachedFile.OriginalFileName}' entered queue."
-            });
-
-            var progress = new Progress<string>(msg =>
-            {
-                _queueService.UpdatePipelineJob(pipelineId, itemIndex, PrintJobStatusCode.Spooling, msg);
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "progress",
-                    FileName = cachedFile.OriginalFileName,
-                    Printer = printer.Name,
-                    Message = $"[{cachedFile.OriginalFileName}] {msg}"
-                });
-            });
-
-            _eventHub.Publish(new PrintEvent
-            {
-                Type = "progress",
-                FileName = cachedFile.OriginalFileName,
-                Printer = printer.Name,
-                Message = $"Processing document {itemIndex}/{batch.Items.Count}: '{cachedFile.OriginalFileName}'"
-            });
-
-            try
-            {
-                var result = await _printService.PrintAsync(printRequest, progress, itemCts.Token);
-
-                if (result.Success)
-                {
-                    _eventHub.Publish(new PrintEvent
-                    {
-                        Type = "completed",
-                        FileName = cachedFile.OriginalFileName,
-                        Printer = printer.Name,
-                        PagesPrinted = result.PagesPrinted,
-                        Message = $"Successfully spooled '{cachedFile.OriginalFileName}' ({result.PagesPrinted} page(s), {result.CopiesPrinted} copy/copies)."
-                    });
-                }
-                else
-                {
-                    _eventHub.Publish(new PrintEvent
-                    {
-                        Type = "error",
-                        FileName = cachedFile.OriginalFileName,
-                        Printer = printer.Name,
-                        Message = $"Printing '{cachedFile.OriginalFileName}' failed: {result.ErrorMessage}"
-                    });
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "error",
-                    FileName = cachedFile.OriginalFileName,
-                    Printer = printer.Name,
-                    Message = $"Printing of '{cachedFile.OriginalFileName}' was cancelled by user."
-                });
-            }
-            catch (Exception ex)
-            {
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "error",
-                    FileName = cachedFile.OriginalFileName,
-                    Printer = printer.Name,
-                    Message = $"Unexpected printing exception for '{cachedFile.OriginalFileName}': {ex.Message}"
-                });
-            }
-            finally
-            {
-                _queueService.UnregisterPipelineJob(pipelineId);
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "queue_updated",
-                    Printer = printer.Name,
-                    Message = $"Queue updated."
-                });
-            }
-        }
-
-        _eventHub.Publish(new PrintEvent
-        {
-            Type = "completed",
-            Printer = printer.Name,
-            Message = $"All {batch.Items.Count} document(s) in queue processed on '{printer.Name}'."
-        });
-    }
+        }).ToList()
+    };
 
     private static List<string> GetLocalLanIpv4Addresses()
     {
         var result = new List<string>();
+        int primaryCount = 0;
         try
         {
             foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -784,12 +788,18 @@ public class PrintingWebServerHost(
                     continue;
                 }
 
-                foreach (var ip in ni.GetIPProperties().UnicastAddresses)
+                var props = ni.GetIPProperties();
+                // Adapters with a default gateway (Wi-Fi / Ethernet) are listed before virtual and VPN adapters
+                bool hasGateway = props.GatewayAddresses.Any(g =>
+                    g.Address.AddressFamily == AddressFamily.InterNetwork && !g.Address.Equals(IPAddress.Any));
+
+                foreach (var ip in props.UnicastAddresses)
                 {
                     if (ip.Address.AddressFamily == AddressFamily.InterNetwork &&
                         !IPAddress.IsLoopback(ip.Address))
                     {
-                        result.Add(ip.Address.ToString());
+                        if (hasGateway) result.Insert(primaryCount++, ip.Address.ToString());
+                        else result.Add(ip.Address.ToString());
                     }
                 }
             }

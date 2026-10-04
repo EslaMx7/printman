@@ -12,6 +12,7 @@ public class PrintJobRequest
     public PrintColorMode ColorMode { get; init; } = PrintColorMode.Default;
     public int Dpi { get; init; } = 300;
     public bool FitToPage { get; init; } = true;
+    public bool FullPage { get; init; } // Render onto the whole sheet instead of inside the default margins (pre-laid-out pages, e.g. IPP jobs)
     public string? JobTitle { get; init; }
     public string? OutputFilePath { get; init; } // Optional: for virtual printers (PDF, XPS) to print directly to file
 }

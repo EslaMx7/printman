@@ -48,6 +48,7 @@ Give your old USB printer Wi-Fi superpowers:
 - **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers (assuming the Printer driver is installed).
 - **Prints Common Formats:** Handles PDF documents, images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
 - **Phone-Ready Web UI:** Run `printman serve` to launch a mobile web page. Anyone on your home Wi-Fi can open it and print from their phone.
+- **Real Network Printer (AirPrint / Mopria / IPP):** Add `--share` and your printer appears as `Printman - <printer>` in the native print dialog of iPhones, iPads, Android phones, Windows, macOS and Linux. No app, no web page, no drivers.
 - **Live Spooler & Hardware Diagnostics:** Interrogates the native Windows Spooler and hardware status flags in real time (Paper Jam, Out of Paper, Offline, Door Open, Busy, Paused).
 - **Duplicate Prevention & Queue Control:** Proactively warns before submitting duplicate print jobs when jobs are pending/stuck; allows canceling individual jobs or purging all jobs in one click.
 - **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided interactive terminal wizard.
@@ -161,7 +162,31 @@ Your console displays a local link with your PIN:
 - **Serialized Print Pipeline:** Sends jobs one-by-one so Windows GDI+/spooler race conditions never occur.
 - **Automatic Storage Cleanup:** Fast SHA-256 caching with automatic LRU cleanup for old uploads.
 
-### 2. Quick Terminal Printing
+### 2. Share as a Network Printer (`serve --share`)
+
+Make your printers show up in every device's built-in print dialog, exactly like a Wi-Fi printer:
+
+```powershell
+# Share the default printer as "Printman - <printer name>"
+printman.exe serve --share
+
+# Share specific printers (partial names work; repeat --share for each)
+printman.exe serve --share "HP Laser" --share "Canon"
+```
+
+- **iPhone / iPad / Mac:** Share → Print → pick `Printman - HP LaserJet ...` (AirPrint).
+- **Android:** Print → select the printer (Default Print Service / Mopria).
+- **Windows:** Settings → Bluetooth & devices → Printers & scanners → Add device.
+- **Linux / ChromeOS:** appears automatically as a driverless (IPP Everywhere) printer.
+
+How it works: printman runs an IPP Everywhere / AirPrint print server on port `631` and announces it with mDNS / DNS-SD (Bonjour). Received jobs (PDF, JPEG, PNG, PWG Raster, Apple URF) go through the same serialized queue as the web UI, so they appear in the live queue too.
+
+> [!IMPORTANT]
+> Native print dialogs cannot type a PIN, so **anyone on your local network can print to shared printers** (just like a normal Wi-Fi printer). The PIN still protects the web UI. Requests from non-private IP addresses are rejected.
+
+**Firewall:** allow printman when Windows asks, and make sure your Wi-Fi is set to a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup.
+
+### 3. Quick Terminal Printing
 
 ```powershell
 # Print to your default printer
@@ -180,7 +205,7 @@ printman.exe "./doc.pdf" -size A4 -copies 2
 printman.exe "./notes.pdf" -p "HP" -pages 1:2 -size A4 -copies 2 -duplex vertical -orientation portrait
 ```
 
-### 3. Printer & Spooler Queue Tools
+### 4. Printer & Spooler Queue Tools
 
 ```powershell
 # List all connected printers and their status
@@ -205,7 +230,7 @@ printman.exe purge "HP Laser"
 printman.exe help
 ```
 
-### 4. Interactive Guided Wizard
+### 5. Interactive Guided Wizard
 
 If you do not want to remember CLI commands, run `printman` without arguments:
 
@@ -259,6 +284,9 @@ The wizard prompts you step-by-step:
 | `--no-auth` | Disable PIN protection | Disabled |
 | `--max-upload-mb`| Maximum file upload size in MB | `50` |
 | `--cache-limit-mb`| Maximum disk cache size in MB before cleanup | `500` |
+| `--share [printer]` | Share a printer as a network printer (repeatable; no name = default printer) | Off |
+| `--ipp-port` | Port for network printing (IPP) | `631` |
+| `--no-mdns` | Do not announce shared printers; devices add them by URL | Announce on |
 
 ---
 

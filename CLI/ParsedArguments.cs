@@ -23,9 +23,34 @@ public class ParsedArguments
     public bool RequireAuth { get; set; } = true;
     public int MaxUploadMb { get; set; } = 50;
     public int CacheLimitMb { get; set; } = 500;
+    public string? ServerOutputDirectory { get; set; }
+    public bool SharePrinters { get; set; } = false;
+    public List<string> SharedPrinterNames { get; set; } = [];
+    public int IppPort { get; set; } = 631;
+    public bool EnableMdns { get; set; } = true;
+    public bool IppAllowAnySource { get; set; } = false;
     public bool WatchQueue { get; set; } = false;
     public string? JobId { get; set; }
 
+
+    public ServerOptions ToServerOptions() => new()
+    {
+        Port = ServerPort,
+        BindAddress = BindAddress,
+        Pin = ServerPin,
+        RequireAuth = RequireAuth,
+        MaxUploadMb = MaxUploadMb,
+        CacheLimitMb = CacheLimitMb,
+        OutputDirectory = ServerOutputDirectory,
+        Share = new ShareOptions
+        {
+            Enabled = SharePrinters,
+            Printers = SharedPrinterNames,
+            IppPort = IppPort,
+            EnableMdns = EnableMdns,
+            AllowAnySource = IppAllowAnySource
+        }
+    };
 
     public PrintJobRequest ToPrintJobRequest()
     {
