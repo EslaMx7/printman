@@ -25,8 +25,19 @@ jobs:
       - name: Build
         run: dotnet build Printman.slnx --no-restore --configuration Release
 
-      - name: Test
-        run: dotnet test Printman.slnx --no-build --configuration Release
+      - name: Test with coverage
+        run: dotnet test Printman.slnx --no-build --configuration Release --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+
+      - name: Enforce coverage ratchet
+        shell: pwsh
+        run: ./eng/check-coverage.ps1
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: TestResults/*.cobertura.xml
 
       - name: Publish
         run: dotnet publish src/Printman/Printman.csproj --configuration Release -r win-x64 --self-contained false -o ./publish

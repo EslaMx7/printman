@@ -49,6 +49,15 @@ dotnet test
 
 Tests run on .NET 10 with **MSTest 4** and **Microsoft.Testing.Platform** (runner pinned in `global.json`). The suite must report **0 failures**; it covers protocol parsing, CLI options, and core models, and never talks to a physical spooler.
 
+### Check Code Coverage
+
+```powershell
+dotnet test Printman.slnx --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+./eng/check-coverage.ps1
+```
+
+`coverage.runsettings` scopes coverage to unit-testable code (Windows spooler, WinRT/GDI+ rendering, Kestrel hosting, console UI and sockets are excluded). The gate is a **ratchet**: the floors in `eng/check-coverage.ps1` (currently **19% lines / 16% branches**) may only be raised, never lowered. PRs that add production code to a measured area without tests fail CI on purpose - add the tests, then bump the floor.
+
 ### Publish Standalone Binary
 
 ```powershell

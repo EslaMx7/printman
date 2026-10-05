@@ -123,9 +123,12 @@ printman/
 │   └── fixtures/
 │       ├── sample.txt                   # Sample test text file
 │       └── test_sample.pdf              # Sample 3-page test PDF
+├── eng/
+│   └── check-coverage.ps1       # Coverage ratchet gate (CI + local)
 ├── Printman.slnx                # Solution (src + tests)
 ├── global.json                  # .NET SDK pin + Microsoft.Testing.Platform runner
-└── Directory.Build.props        # Shared build settings
+├── Directory.Build.props        # Shared build settings
+└── coverage.runsettings         # Scopes coverage to unit-testable code
 ```
 
 ---
@@ -201,11 +204,13 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
 When verifying changes:
 1. **Never send test jobs to physical printers:**
    Always use virtual printers (`-printer "XPS"` or `Print to PDF`) along with `-output "output.xps"` to ensure tests run headlessly and silently without paper or toner consumption.
-2. **Unit tests:**
+2. **Unit tests + coverage ratchet:**
    ```powershell
-   dotnet test Printman.slnx            # MSTest 4 + Microsoft.Testing.Platform (runner pinned in global.json)
+   dotnet test Printman.slnx --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+   ./eng/check-coverage.ps1            # enforces the floor; CI runs this on every PR
    ```
-   Must report **0 failures**. Tests live in `tests/Printman.Tests` and cover pure logic (IPP/DNS codecs, CLI parsing, models, raster indexing). Keep spooler and printer-discovery access behind interfaces so it stays out of unit tests.
+   Must report **0 failures** and pass the coverage gate. Tests live in `tests/Printman.Tests` and cover pure logic (IPP codec, PWG media mapping, CLI parsing, models). `coverage.runsettings` measures only unit-testable code; platform-bound layers are excluded and verified by the smoke tests below.
+   **Coverage is a ratchet**: the floors in `eng/check-coverage.ps1` (currently **19% lines / 16% branches**) may only be raised, never lowered. Adding production code to a measured area without tests fails the build on purpose - add the tests, then bump the floor if coverage improved.
 3. **Compilation check:**
    `dotnet build` (auto-discovers `Printman.slnx`) must always produce **0 warnings and 0 errors**.
 4. **Core commands smoke test:**

@@ -25,11 +25,12 @@ dotnet build Printman.slnx -t:Compile
 ```
 Expected result: `0 Warning(s), 0 Error(s)`.
 
-### Step 1.2: Unit Tests
+### Step 1.2: Unit Tests & Coverage Ratchet
 ```powershell
-dotnet test Printman.slnx
+dotnet test Printman.slnx --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+./eng/check-coverage.ps1
 ```
-Expected result: all tests pass (`0 failed`).
+Expected result: all tests pass (`0 failed`) and the coverage gate reports `COVERAGE GATE PASSED`. The floors in `eng/check-coverage.ps1` may only be raised, never lowered.
 
 ### Step 1.3: Headless Virtual Smoke Test
 Never send automated tests to a physical printer. Always verify using a virtual printer (`Print to PDF` or `XPS`) and output to a temporary file:
