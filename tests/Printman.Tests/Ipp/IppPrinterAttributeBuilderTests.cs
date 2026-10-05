@@ -406,9 +406,12 @@ public sealed class IppPrinterAttributeBuilderTests
         Assert.AreEqual("auto", mediaCol.Get("media-source")!.First!.AsString());
         Assert.AreEqual("stationery", mediaCol.Get("media-type")!.First!.AsString());
 
+        // media-col-default follows the region default (A4 metric / Letter else), so derive the
+        // expected dimensions from the selected PWG media instead of hardcoding A4.
+        var defaultPwg = PwgMediaMapper.FindByName(defaultMedia)!;
         var size = mediaCol.Get("media-size")!.First!.AsCollection()!;
-        Assert.AreEqual(21000, size.Get("x-dimension")!.First!.AsInt());
-        Assert.AreEqual(29700, size.Get("y-dimension")!.First!.AsInt());
+        Assert.AreEqual(defaultPwg.WidthHmm, size.Get("x-dimension")!.First!.AsInt());
+        Assert.AreEqual(defaultPwg.HeightHmm, size.Get("y-dimension")!.First!.AsInt());
 
         var ready = g.Get("media-col-ready")!.First!.AsCollection()!;
         Assert.AreEqual(defaultMedia, ready.Get("media-size-name")!.First!.AsString());
