@@ -33,8 +33,8 @@
 [CmdletBinding()]
 param(
     [string]$Path,
-    [double]$MinLine = 19,
-    [double]$MinBranch = 16
+    [double]$MinLine = 99,
+    [double]$MinBranch = 90
 )
 
 $ErrorActionPreference = 'Stop'

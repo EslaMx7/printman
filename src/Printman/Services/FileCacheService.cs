@@ -20,9 +20,13 @@ public class FileCacheService : IFileCacheService
     public long MaxFileSizeBytes { get; set; } = 50L * 1024 * 1024; // 50 MB default
     public long MaxCacheSizeBytes { get; set; } = 500L * 1024 * 1024; // 500 MB default
 
-    public FileCacheService()
+    /// <param name="cacheDirectory">
+    /// Directory used for cached uploads. Defaults to a "cache" folder next to the executable;
+    /// tests inject a temporary directory to stay isolated.
+    /// </param>
+    public FileCacheService(string? cacheDirectory = null)
     {
-        _cacheDirectory = Path.Combine(AppContext.BaseDirectory, "cache");
+        _cacheDirectory = cacheDirectory ?? Path.Combine(AppContext.BaseDirectory, "cache");
         if (!Directory.Exists(_cacheDirectory))
         {
             Directory.CreateDirectory(_cacheDirectory);
