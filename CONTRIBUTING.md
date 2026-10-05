@@ -56,7 +56,7 @@ dotnet test Printman.slnx --coverage --coverage-output-format cobertura --covera
 ./eng/check-coverage.ps1
 ```
 
-`coverage.runsettings` scopes coverage to unit-testable code (Windows spooler, WinRT/GDI+ rendering, Kestrel hosting, console UI and sockets are excluded). The gate is a **ratchet**: the floors in `eng/check-coverage.ps1` (currently **99% lines / 90% branches**) may only be raised, never lowered. PRs that add production code to a measured area without tests fail CI on purpose - add the tests, then bump the floor.
+`coverage.runsettings` scopes coverage to unit-testable code (Windows spooler, WinRT/GDI+ rendering, Kestrel hosting, console UI and sockets are excluded). The gate is a **ratchet**: the floors in `eng/check-coverage.ps1` (currently **99% lines / 92% branches**) may only be raised, never lowered. PRs that add production code to a measured area without tests fail CI on purpose - add the tests, then bump the floor.
 
 ### Publish Standalone Binary
 

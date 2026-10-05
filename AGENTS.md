@@ -210,7 +210,7 @@ When verifying changes:
    ./eng/check-coverage.ps1            # enforces the floor; CI runs this on every PR
    ```
    Must report **0 failures** and pass the coverage gate. Tests live in `tests/Printman.Tests` and cover pure logic (IPP codec, PWG media mapping, CLI parsing, models). `coverage.runsettings` measures only unit-testable code; platform-bound layers are excluded and verified by the smoke tests below.
-   **Coverage is a ratchet**: the floors in `eng/check-coverage.ps1` (currently **99% lines / 90% branches**) may only be raised, never lowered. Adding production code to a measured area without tests fails the build on purpose - add the tests, then bump the floor if coverage improved.
+   **Coverage is a ratchet**: the floors in `eng/check-coverage.ps1` (currently **99% lines / 92% branches**) may only be raised, never lowered. Adding production code to a measured area without tests fails the build on purpose - add the tests, then bump the floor if coverage improved.
 3. **Compilation check:**
    `dotnet build` (auto-discovers `Printman.slnx`) must always produce **0 warnings and 0 errors**.
 4. **Core commands smoke test:**

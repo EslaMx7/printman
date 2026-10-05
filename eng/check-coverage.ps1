@@ -34,7 +34,7 @@
 param(
     [string]$Path,
     [double]$MinLine = 99,
-    [double]$MinBranch = 90
+    [double]$MinBranch = 92
 )
 
 $ErrorActionPreference = 'Stop'
