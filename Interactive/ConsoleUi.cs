@@ -213,11 +213,15 @@ COMMANDS:
                                          --no-auth (disable PIN requirement),
                                          --max-upload-mb <n> (default: 50),
                                          --cache-limit-mb <n> (default: 500)
-                                Network printer sharing (opt-in, no PIN for native printing):
-                                         --share [printer] (repeatable; default printer if no name)
-                                         --share-select (pick printers to share from a list)
-                                                Shows up as ""Printman - <printer>"" in iPhone/iPad
-                                                (AirPrint), Android, Windows, macOS & Linux dialogs
+                                         --share [printer], --share-select (also share network
+                                                printers, see ""share"")
+  share [printer ...]           Share printers as network printers, without the web UI.
+                                Shows up as ""Printman - <printer>"" in iPhone/iPad (AirPrint),
+                                Android, Windows, macOS & Linux print dialogs (no PIN).
+                                No name shares the default printer; partial names work.
+                                Options: --select (pick printers from a checklist),
+                                         --all (every installed printer),
+                                         --web (also start the web UI; accepts serve options),
                                          --ipp-port <n> (default: 631), --no-mdns (no discovery)
   queue, q [printer] [--watch]  Inspect real-time Windows Spooler & pipeline queue
   cancel <job-id> [-p <name>]   Cancel a specific print job by ID
@@ -263,8 +267,11 @@ EXAMPLES:
   printman.exe list
       Lists all detected printers on this machine.
 
-  printman.exe serve --share ""HP Laser"" --share ""Canon""
-      Web server plus two network printers that phones and PCs find in their print dialogs.
+  printman.exe share ""HP Laser"" ""Canon""
+      Two network printers that phones and PCs find in their print dialogs (no web UI).
+
+  printman.exe share --web
+      Shares the default printer and also starts the web UI.
 
   printman.exe info ""HP LaserJet""
       Shows paper trays, duplex support, and capabilities of the printer.

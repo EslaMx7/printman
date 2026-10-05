@@ -27,6 +27,8 @@ public class ParsedArguments
     public bool SharePrinters { get; set; } = false;
     public List<string> SharedPrinterNames { get; set; } = [];
     public bool SelectSharedPrinters { get; set; } = false;
+    public bool ShareAllPrinters { get; set; } = false;
+    public bool EnableWebUi { get; set; } = true; // false for "share" without --web
     public int IppPort { get; set; } = 631;
     public bool EnableMdns { get; set; } = true;
     public bool IppAllowAnySource { get; set; } = false;
@@ -43,6 +45,7 @@ public class ParsedArguments
         MaxUploadMb = MaxUploadMb,
         CacheLimitMb = CacheLimitMb,
         OutputDirectory = ServerOutputDirectory,
+        EnableWebUi = EnableWebUi,
         Share = new ShareOptions
         {
             Enabled = SharePrinters,

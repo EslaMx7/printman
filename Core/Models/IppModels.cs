@@ -321,6 +321,7 @@ public sealed class IppJob
 public sealed class IppServerSettings
 {
     public int WebPort { get; set; } = 5000;
+    public bool WebUiEnabled { get; set; } = true;
     public int IppPort { get; set; } = 631;
     public long MaxJobBytes { get; set; } = 256L * 1024 * 1024;
     public int MaxPendingJobs { get; set; } = 50;

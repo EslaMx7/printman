@@ -69,7 +69,9 @@ public class PrintingWebServerHost(
         int port = options.Port;
         string bindAddress = options.BindAddress;
         string? pin = options.Pin;
-        bool requireAuth = options.RequireAuth;
+        // Without the web UI ("printman share") only the IPP endpoint is served, so there is nothing to protect with a PIN
+        bool webUi = options.EnableWebUi;
+        bool requireAuth = options.RequireAuth && webUi;
         int maxUploadMb = options.MaxUploadMb;
 
         // 1. Configure storage bounds and quotas (sec-02)
@@ -113,6 +115,7 @@ public class PrintingWebServerHost(
                     ippPort = port;
                 }
 
+                _ippSettings.WebUiEnabled = webUi;
                 _ippSettings.WebPort = port;
                 _ippSettings.IppPort = ippPort;
                 _ippSettings.MaxJobBytes = Math.Min(share.MaxJobMb, options.CacheLimitMb) * 1024L * 1024L;
@@ -120,6 +123,16 @@ public class PrintingWebServerHost(
             }
         }
         bool separateIppPort = sharing && ippPort != port;
+
+        if (!webUi && !sharing)
+        {
+            foreach (var warning in shareWarnings)
+            {
+                ConsoleUi.PrintWarning(warning);
+            }
+            ConsoleUi.PrintError("Nothing to share. Run 'printman list' to see the installed printers.");
+            return 1;
+        }
 
         var builder = WebApplication.CreateBuilder();
 
@@ -137,8 +150,11 @@ public class PrintingWebServerHost(
         // Kestrel request limits (sec-02); IPP requests raise their own limit per request
         builder.WebHost.ConfigureKestrel(kestrel =>
         {
-            kestrel.Listen(IPAddress.Parse(bindAddress), port);
-            if (separateIppPort)
+            if (webUi)
+            {
+                kestrel.Listen(IPAddress.Parse(bindAddress), port);
+            }
+            if (separateIppPort || !webUi)
             {
                 kestrel.Listen(IPAddress.Parse(bindAddress), ippPort);
             }
@@ -151,12 +167,12 @@ public class PrintingWebServerHost(
         using var queueCts = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
         _ = Task.Run(() => _pipeline.RunAsync(queueCts.Token), ct);
 
-        // 4. Background Spooler Queue Observer
+        // 4. Background Spooler Queue Observer (feeds the web UI's live queue)
         _ = Task.Run(async () =>
         {
             int lastJobCount = -1;
             string lastStatusSummary = "";
-            while (!ct.IsCancellationRequested)
+            while (webUi && !ct.IsCancellationRequested)
             {
                 try
                 {
@@ -255,13 +271,14 @@ public class PrintingWebServerHost(
             return true;
         }
 
-        // Port separation: the IPP port only serves /ipp/*, the web port never does
-        if (separateIppPort)
+        // Port separation: the IPP port only serves /ipp/*, the web port never does.
+        // Without the web UI the only listener is the IPP port, so everything outside /ipp/* is a 404.
+        if (separateIppPort || !webUi)
         {
             app.Use(async (ctx, next) =>
             {
                 bool isIppPath = ctx.Request.Path.StartsWithSegments("/ipp", StringComparison.OrdinalIgnoreCase);
-                bool onIppPort = ctx.Connection.LocalPort == ippPort;
+                bool onIppPort = !webUi || ctx.Connection.LocalPort == ippPort;
                 if (isIppPath != onIppPort)
                 {
                     ctx.Response.StatusCode = StatusCodes.Status404NotFound;
@@ -578,33 +595,36 @@ public class PrintingWebServerHost(
 
         // Show start banner in console
         ConsoleUi.ShowBanner();
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"\n  [WEB SERVER RUNNING]  Port: {port}");
-        Console.ResetColor();
-
-        if (requireAuth)
+        if (webUi)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"  [SECURITY] PIN Protected:  {pin}");
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"\n  [WEB SERVER RUNNING]  Port: {port}");
+            Console.ResetColor();
+
+            if (requireAuth)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"  [SECURITY] PIN Protected:  {pin}");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("  [SECURITY] Open Access (--no-auth enabled)");
+                Console.ResetColor();
+            }
+
+            Console.WriteLine("\n  Access from this machine or your phone on the same Wi-Fi:");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            string pinQuery = requireAuth ? $"?pin={pin}" : "";
+            Console.WriteLine($"    Local:    http://localhost:{port}/{pinQuery}");
+
+            foreach (var ip in lanIps)
+            {
+                Console.WriteLine($"    Network:  http://{ip}:{port}/{pinQuery}");
+            }
             Console.ResetColor();
         }
-        else
-        {
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine("  [SECURITY] Open Access (--no-auth enabled)");
-            Console.ResetColor();
-        }
-
-        Console.WriteLine("\n  Access from this machine or your phone on the same Wi-Fi:");
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        string pinQuery = requireAuth ? $"?pin={pin}" : "";
-        Console.WriteLine($"    Local:    http://localhost:{port}/{pinQuery}");
-
-        foreach (var ip in lanIps)
-        {
-            Console.WriteLine($"    Network:  http://{ip}:{port}/{pinQuery}");
-        }
-        Console.ResetColor();
 
         // Network printer advertising (mDNS / DNS-SD)
         bool advertising = false;
@@ -650,7 +670,9 @@ public class PrintingWebServerHost(
                 ? "  Discoverable from iPhone/iPad (AirPrint), Android, Windows, macOS and Linux print dialogs."
                 : "  Discovery is off (--no-mdns): add the printer on each device using one of the URLs above.");
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("  Anyone on this network can print to these printers without the PIN.");
+            Console.WriteLine(requireAuth
+                ? "  Anyone on this network can print to these printers without the PIN."
+                : "  Anyone on this network can print to these printers.");
             Console.ResetColor();
 
             var firewallHints = _firewall.CheckInboundAccess(ippPort, advertising);
@@ -670,13 +692,15 @@ public class PrintingWebServerHost(
             ConsoleUi.PrintWarning(warning);
         }
 
-        Console.WriteLine("\n  Live SSE status reporting enabled • Drag & drop supported");
+        Console.WriteLine(webUi
+            ? "\n  Live SSE status reporting enabled • Drag & drop supported"
+            : "\n  Web UI is off. Run 'printman serve' (or add --web) to also print from a browser.");
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Write("  Enjoying Printman? If this helped you, a coffee is warmly appreciated: ");
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("https://buymeacoffee.com/eslamx7");
         Console.ResetColor();
-        Console.WriteLine("  Press Ctrl+C to stop the server.\n");
+        Console.WriteLine(webUi ? "  Press Ctrl+C to stop the server.\n" : "  Press Ctrl+C to stop sharing.\n");
 
         int cancelPressCount = 0;
         using var localCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -703,7 +727,7 @@ public class PrintingWebServerHost(
         }
         catch (OperationCanceledException)
         {
-            Console.WriteLine("\nWeb server stopped.");
+            Console.WriteLine(webUi ? "\nWeb server stopped." : "\nPrinter sharing stopped.");
             return 0;
         }
         finally

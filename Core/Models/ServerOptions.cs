@@ -1,7 +1,7 @@
 namespace Printman.Core.Models;
 
 /// <summary>
-/// Configuration for the embedded LAN web server (`printman serve`).
+/// Configuration for the embedded LAN server (`printman serve` / `printman share`).
 /// </summary>
 public sealed record ServerOptions
 {
@@ -18,6 +18,11 @@ public sealed record ServerOptions
     /// </summary>
     public string? OutputDirectory { get; init; }
 
+    /// <summary>
+    /// When false (`printman share`), only shared network printers are served: no web UI, API or PIN.
+    /// </summary>
+    public bool EnableWebUi { get; init; } = true;
+
     public ShareOptions Share { get; init; } = new();
 }
 
@@ -26,7 +31,7 @@ public sealed record ServerOptions
 /// </summary>
 public sealed record ShareOptions
 {
-    /// <summary>Opt-in: when false the server is web-only.</summary>
+    /// <summary>Opt-in (`share`, `--share`): when false the server is web-only.</summary>
     public bool Enabled { get; init; }
 
     /// <summary>Printer names (fuzzy matched). Empty means the Windows default printer.</summary>

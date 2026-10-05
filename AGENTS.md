@@ -9,7 +9,7 @@ This document provides context, architectural constraints, and operational instr
 **Printman** is a zero-dependency, high-performance Windows CLI and mobile LAN printing platform built on modern .NET (`net10.0-windows` with `TargetPlatformVersion 10.0.19041.0`) with native Windows WinRT integration.
 
 - **Primary Binary:** `printman.exe`
-- **Current State:** CLI commands, interactive wizard, PDF/Image/Text rendering, printer discovery and fuzzy matching, plus embedded mobile LAN web server (`serve`).
+- **Current State:** CLI commands, interactive launcher menu, PDF/Image/Text rendering, printer discovery and fuzzy matching, plus embedded mobile LAN web server (`serve`) and network printer sharing (`share`).
 
 ---
 
@@ -103,8 +103,9 @@ Printman/
 │   └── CliHandler.cs
 ├── Interactive/                 # Terminal UI & Interactive Wizard
 │   ├── ConsoleUi.cs                      # ANSI colors, tables, banner
-│   ├── PrinterPicker.cs                  # Multi-select printer checklist (--share-select, wizard)
-│   └── InteractiveWizard.cs              # Step-by-step guided printing prompt
+│   ├── PrinterPicker.cs                  # Multi-select printer checklist (share --select, launcher)
+│   ├── ConsoleMenu.cs                    # Single-select arrow-key menu (launcher)
+│   └── InteractiveWizard.cs              # No-arg launcher menu + "More tools" (print wizard, queue)
 ├── Printman.csproj              # Project configuration
 ├── Program.cs                   # Composition Root & DI configuration
 └── tests/
@@ -125,11 +126,16 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
    - `--no-auth` / `--allow-anonymous`: Disable PIN authentication (open access mode).
    - `--max-upload-mb <n>`: Maximum file upload size limit in MB (default: `50`).
    - `--cache-limit-mb <n>`: Total disk cache limit in MB before LRU eviction (default: `500`).
-   - `--share [printer]`: Opt-in network printer sharing; repeatable; no name = Windows default printer. Advertised as `Printman - <printer>`.
-   - `--share-select`: Pick printers to share from a checklist (`Interactive/PrinterPicker.cs`, run by `CliHandler` before the server starts; `--share` names are preselected; falls back to typed numbers when stdin/stdout are redirected).
+   - `--share [printer]`: Also share printers next to the web UI; repeatable; no name = Windows default printer. Advertised as `Printman - <printer>`.
+   - `--share-select`: Same, picking printers from a checklist (`Interactive/PrinterPicker.cs`, run by `CliHandler` before the server starts; `--share` names are preselected; falls back to typed numbers when stdin/stdout are redirected).
    - `--ipp-port <n>`: IPP port (default: `631`; falls back to the web port if busy).
    - `--no-mdns`: Serve IPP without mDNS / DNS-SD announcements.
    - Hidden/dev: `--output-dir <dir>` (print every server job to a file), `--ipp-allow-any-source`.
+   **Command:** `printman share [printer ...] [options]` (alias: `share-select` = `share --select`)
+   - Network printers only: same host with `ServerOptions.EnableWebUi = false`. Kestrel listens only on the IPP port, everything outside `/ipp/*` is a 404, no PIN is generated and `printer-more-info` / `adminurl` never point at a web port.
+   - Positional printer names (fuzzy); no name = Windows default printer. `--select` (checklist), `--all` (every printer), `--web` / `--ui` (also start the web UI; equivalent to `serve --share`).
+   - Accepts `--ipp-port`, `--no-mdns`, `--ip`, `--cache-limit-mb`, the hidden flags, and the web flags (used with `--web`; `--port` is also the IPP fallback port). Exits with code 1 when nothing can be shared.
+   **No arguments:** `InteractiveWizard` shows a launcher menu (`Interactive/ConsoleMenu.cs`): web UI / share default printer / choose printers to share / both / More tools / Exit.
 2. **Features & Security Architecture:**
    - Detects local LAN IPv4 network interfaces and displays mobile-accessible URLs with quick-auth token links (e.g. `http://192.168.1.X:5000/?pin=123456`).
    - Mobile-first responsive web SPA in `Server/Web/index.html` (embedded into assembly via MSBuild `<EmbeddedResource>` and loaded via in-memory cached loader `Server/WebAssets.cs` with development live-reload support; auto/manual light & dark theme, PIN lock screen, drag-and-drop, multi-file queue, printer picker, paper size filter, copies, duplex, and color options).
@@ -147,8 +153,8 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
      - `IFileCacheService` tracks disk usage against `MaxCacheSizeBytes` (default 500 MB) and evicts oldest unreferenced files on disk.
    - **Serialized Print Spooling Queue (`sec-06`):**
      - `IPrintJobPipeline` (`Services/PrintJobPipeline.cs`) serializes print jobs from both the web UI and IPP clients to prevent Windows GDI+/spooler race conditions and thread pool starvation. Enqueue returns a `PipelineTicket` (state, cancel, completion).
-   - **Network Printer Sharing (`--share`, IPP Everywhere / AirPrint / Mopria):**
-     - Second Kestrel listener on the IPP port; a port-separation middleware serves only `/ipp/*` there and never on the web port.
+   - **Network Printer Sharing (`share` / `serve --share`, IPP Everywhere / AirPrint / Mopria):**
+     - Second Kestrel listener on the IPP port (the only listener for `share` without `--web`); a port-separation middleware serves only `/ipp/*` there and never on the web port.
      - `POST /ipp/print/{slug}` (`/ipp/print` = first shared printer). Unauthenticated by design (native dialogs cannot send a PIN); restricted to private source IPs and `Content-Type: application/ipp`.
      - Documents are sniffed by magic bytes (PDF, JPEG, PNG, PWG `RaS2`, URF `UNIRAST`) and cached via `IFileCacheService.StoreFileAsync(..., maxFileSizeBytes, ...)`.
      - IPP jobs render with `PrintJobRequest.FullPage = true` (whole sheet, not the 1-inch default margins).
@@ -191,7 +197,8 @@ When verifying changes:
    ```
 4. **Network printer sharing smoke test (headless):**
    ```powershell
-   dotnet run -- serve --no-auth --share "Microsoft Print to PDF" --output-dir out
+   dotnet run -- share "Microsoft Print to PDF" --output-dir out                    # network printers only
+   dotnet run -- serve --no-auth --share "Microsoft Print to PDF" --output-dir out  # web UI + network printers
    dns-sd -B _ipp._tcp,_universal          # Bonjour tool, if installed: lists "Printman - Microsoft Print to PDF"
    ```
    Send IPP requests (Get-Printer-Attributes / Print-Job with `application/ipp` bodies) to `http://localhost:631/ipp/print/microsoft-print-to-pdf`; jobs land in `out/` as PDFs.

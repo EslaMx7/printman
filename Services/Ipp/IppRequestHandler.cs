@@ -583,6 +583,11 @@ public class IppRequestHandler(
         {
             host = host[..colon];
         }
+        if (!_settings.WebUiEnabled)
+        {
+            // No web UI ("printman share"): point at the printer's own info page instead
+            return $"http://{host}:{_settings.IppPort}/{call.Printer.ResourcePath}";
+        }
         return $"http://{host}:{_settings.WebPort}/";
     }
 

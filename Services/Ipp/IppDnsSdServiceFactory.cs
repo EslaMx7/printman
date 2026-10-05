@@ -50,7 +50,7 @@ public class IppDnsSdServiceFactory(
                 new("air", "none")
             };
 
-            if (!string.IsNullOrEmpty(_settings.MdnsHostName))
+            if (_settings.WebUiEnabled && !string.IsNullOrEmpty(_settings.MdnsHostName))
             {
                 txt.Add(new("adminurl", $"http://{_settings.MdnsHostName}:{_settings.WebPort}/"));
             }

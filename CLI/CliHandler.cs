@@ -30,9 +30,18 @@ public class CliHandler(
                 return HandlePrinterInfo(parsedArgs.QueryTarget);
 
             case CliCommandType.Server:
+                if (parsedArgs.ShareAllPrinters)
+                {
+                    parsedArgs.SharedPrinterNames = _printerDiscovery.GetPrinters().Select(p => p.Name).ToList();
+                }
                 if (parsedArgs.SelectSharedPrinters && !SelectPrintersToShare(parsedArgs))
                 {
                     return 0;
+                }
+                if (!parsedArgs.EnableWebUi && !parsedArgs.SharePrinters)
+                {
+                    // "share" with nothing to share and no web UI: nothing to run
+                    return 1;
                 }
                 return await _webServer.RunAsync(parsedArgs.ToServerOptions());
 
@@ -55,14 +64,16 @@ public class CliHandler(
     }
 
     /// <summary>
-    /// Handles --share-select: lets the user tick printers to share. Returns false if the user cancelled.
+    /// Handles share --select / --share-select: lets the user tick printers to share. Returns false if the user cancelled.
     /// </summary>
     private bool SelectPrintersToShare(ParsedArguments parsedArgs)
     {
         var printers = _printerDiscovery.GetPrinters();
         if (printers.Count == 0)
         {
-            ConsoleUi.PrintWarning("No printers are installed; starting without network printer sharing.");
+            ConsoleUi.PrintWarning(parsedArgs.EnableWebUi
+                ? "No printers are installed; starting without network printer sharing."
+                : "No printers are installed; there is nothing to share.");
             parsedArgs.SharePrinters = false;
             return true;
         }
@@ -86,7 +97,9 @@ public class CliHandler(
 
         if (picked.Count == 0)
         {
-            ConsoleUi.PrintWarning("No printers selected; starting the web server without network printer sharing.");
+            ConsoleUi.PrintWarning(parsedArgs.EnableWebUi
+                ? "No printers selected; starting the web server without network printer sharing."
+                : "No printers selected; there is nothing to share.");
             parsedArgs.SharePrinters = false;
             return true;
         }

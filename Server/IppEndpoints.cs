@@ -22,9 +22,11 @@ public static class IppEndpoints
         app.MapPost("/ipp/print/{**rest}", ctx =>
             HandleAsync(ctx, ctx.Request.RouteValues["rest"] as string, handler, settings, allowAnySource));
 
-        // Browsers following the printer URL get pointed to the web UI
+        // Browsers following the printer URL get pointed to the web UI (when it is running)
         app.MapGet("/ipp/print/{**rest}", (HttpContext ctx) => Results.Content(
-            $"This is a Printman network printer (IPP). Add it from your device's printer settings, or use the web UI on port {settings.WebPort}.",
+            settings.WebUiEnabled
+                ? $"This is a Printman network printer (IPP). Add it from your device's printer settings, or use the web UI on port {settings.WebPort}."
+                : "This is a Printman network printer (IPP). Add it from your device's printer settings.",
             "text/plain"));
     }
 

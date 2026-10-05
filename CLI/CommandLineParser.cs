@@ -50,12 +50,24 @@ public static class CommandLineParser
             return result;
         }
 
-        if (firstArg.Equals("server", StringComparison.OrdinalIgnoreCase) ||
+        // "share" runs the same host as "serve", but with network printers only (no web UI unless --web)
+        bool isShareSelect = firstArg.Equals("share-select", StringComparison.OrdinalIgnoreCase);
+        bool isShareCommand = isShareSelect || firstArg.Equals("share", StringComparison.OrdinalIgnoreCase);
+
+        if (isShareCommand ||
+            firstArg.Equals("server", StringComparison.OrdinalIgnoreCase) ||
             firstArg.Equals("serve", StringComparison.OrdinalIgnoreCase) ||
             firstArg.Equals("--server", StringComparison.OrdinalIgnoreCase) ||
             firstArg.Equals("--serve", StringComparison.OrdinalIgnoreCase))
         {
             result.Command = CliCommandType.Server;
+            if (isShareCommand)
+            {
+                result.SharePrinters = true;
+                result.EnableWebUi = false;
+                result.SelectSharedPrinters = isShareSelect;
+            }
+
             for (int j = 1; j < args.Length; j++)
             {
                 var serverArg = args[j].Trim();
@@ -143,9 +155,18 @@ public static class CommandLineParser
                         break;
 
                     case "--share-select" or "-share-select":
-                        // Pick printers from an interactive checklist (names from --share are preselected)
+                    case "--select" or "-select" when isShareCommand:
+                        // Pick printers from an interactive checklist (named printers are preselected)
                         result.SharePrinters = true;
                         result.SelectSharedPrinters = true;
+                        break;
+
+                    case "--all" or "-all" when isShareCommand:
+                        result.ShareAllPrinters = true;
+                        break;
+
+                    case "--web" or "-web" or "--ui" or "-ui" when isShareCommand:
+                        result.EnableWebUi = true;
                         break;
 
                     case "--ipp-port" or "-ipp-port":
@@ -173,6 +194,24 @@ public static class CommandLineParser
                         if (!string.IsNullOrWhiteSpace(outDirVal))
                         {
                             result.ServerOutputDirectory = outDirVal;
+                        }
+                        break;
+
+                    default:
+                        if (isShareCommand)
+                        {
+                            if (serverArg.StartsWith('-'))
+                            {
+                                throw new ArgumentException($"Unrecognized share option: '{serverArg}'. Run 'printman --help' for usage.");
+                            }
+
+                            // Positional printer names: printman share "HP Laser" "Canon"
+                            var printerName = serverArg.Trim('"', '\'');
+                            if (printerName.Length > 0 &&
+                                !result.SharedPrinterNames.Contains(printerName, StringComparer.OrdinalIgnoreCase))
+                            {
+                                result.SharedPrinterNames.Add(printerName);
+                            }
                         }
                         break;
                 }
