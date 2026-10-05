@@ -34,7 +34,10 @@
 param(
     [string]$Path,
     [double]$MinLine = 99,
-    [double]$MinBranch = 92
+    [double]$MinBranch = 92,
+
+    # Markdown summary written for CI (posted as a sticky PR comment). Set to '' to skip.
+    [string]$SummaryPath = 'TestResults/coverage-summary.md'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -95,20 +98,31 @@ Write-Host ("  Lines    {0,6:N2}%  ({1}/{2})   floor {3,5:N2}%  [{4}]" -f $lineR
 Write-Host ("  Branches {0,6:N2}%  ({1}/{2})   floor {3,5:N2}%  [{4}]" -f $branchRate, $branchesCovered, $branchesValid, $MinBranch, $branchStatus) -ForegroundColor $(if ($branchPass) { 'Green' } else { 'Red' })
 Write-Host ''
 
-# Job summary (GitHub Actions) and annotations.
-$summaryPath = $env:GITHUB_STEP_SUMMARY
-if ($summaryPath) {
-    $markdown = @'
-### Unit test coverage
-
+# Markdown summary: written to a file (for the sticky PR comment) and the Actions job summary.
+$headline = if ($passed) { 'PASS' } else { 'FAIL' }
+$table = @'
 | Metric | Coverage | Covered / Total | Floor | Result |
 | :--- | ---: | ---: | ---: | :--- |
 | Lines | {0:N2}% | {1} / {2} | {3:N2}% | {4} |
 | Branches | {5:N2}% | {6} / {7} | {8:N2}% | {9} |
-
-Coverage is a ratchet: the floors in `eng/check-coverage.ps1` may only be raised, never lowered.
 '@ -f $lineRate, $linesCovered, $linesValid, $MinLine, $lineStatus, $branchRate, $branchesCovered, $branchesValid, $MinBranch, $branchStatus
-    Add-Content -LiteralPath $summaryPath -Value $markdown
+
+$markdown = "### Unit test coverage - $headline`n`n$table"
+if (-not $passed) {
+    $markdown += "`n> Coverage gate failed: add or improve unit tests. The floors in ``eng/check-coverage.ps1`` are a ratchet and may only be raised.`n"
+}
+$markdown += "`n`nCoverage is a ratchet: the floors in ``eng/check-coverage.ps1`` may only be raised, never lowered.`n"
+
+if ($SummaryPath) {
+    $summaryDirectory = Split-Path -Parent $SummaryPath
+    if ($summaryDirectory -and -not (Test-Path -LiteralPath $summaryDirectory)) {
+        New-Item -ItemType Directory -Path $summaryDirectory -Force | Out-Null
+    }
+    Set-Content -LiteralPath $SummaryPath -Value $markdown -Encoding utf8
+}
+
+if ($env:GITHUB_STEP_SUMMARY) {
+    Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $markdown
 }
 
 if (-not $passed) {
