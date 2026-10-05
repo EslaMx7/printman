@@ -41,10 +41,27 @@ The build must produce **0 warnings and 0 errors**. Treat all warnings as errors
 dotnet build -c Release
 ```
 
+### Run Unit Tests
+
+```powershell
+dotnet test
+```
+
+Tests run on .NET 10 with **MSTest 4** and **Microsoft.Testing.Platform** (runner pinned in `global.json`). The suite must report **0 failures**; it covers protocol parsing, CLI options, and core models, and never talks to a physical spooler.
+
+### Check Code Coverage
+
+```powershell
+dotnet test Printman.slnx --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+./eng/check-coverage.ps1
+```
+
+`coverage.runsettings` scopes coverage to unit-testable code (Windows spooler, WinRT/GDI+ rendering, Kestrel hosting, console UI and sockets are excluded). The gate is a **ratchet**: the floors in `eng/check-coverage.ps1` (currently **99% lines / 92% branches**) may only be raised, never lowered. PRs that add production code to a measured area without tests fail CI on purpose - add the tests, then bump the floor.
+
 ### Publish Standalone Binary
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained false -o ./publish
+dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false -o ./publish
 ```
 
 This produces `printman.exe` in the `./publish` directory, ready for deployment.
@@ -68,7 +85,7 @@ Printman adheres strictly to SOLID principles. When contributing code, ensure yo
 - **File-scoped namespaces:** Use file-scoped namespace declarations (e.g., `namespace Printman.Core;`).
 - **XML documentation:** All public types and members must have XML documentation comments.
 - **Async methods:** Use `async`/`await` with `CancellationToken` where applicable. Follow the `Async` suffix convention for async method names.
-- **Zero third-party dependencies:** Do not add NuGet packages. Use only the .NET BCL, Windows SDK / WinRT, and framework references (`Microsoft.AspNetCore.App`, `Microsoft.WindowsDesktop.App`).
+- **Zero third-party dependencies (shipped code):** Do not add NuGet packages to `src/Printman`. Use only the .NET BCL, Windows SDK / WinRT, and framework references (`Microsoft.AspNetCore.App`, `Microsoft.WindowsDesktop.App`). The test project may reference Microsoft-owned test packages (MSTest / Microsoft.Testing.Platform); they never reach the published binary.
 
 ## Pull Request Process
 
@@ -107,31 +124,31 @@ Before submitting a PR, run the following smoke tests to verify core functionali
 ### List Printers
 
 ```powershell
-dotnet run -- list
+dotnet run --project src/Printman -- list
 ```
 
 ### Get Printer Info
 
 ```powershell
-dotnet run -- info "Microsoft Print to PDF"
+dotnet run --project src/Printman -- info "Microsoft Print to PDF"
 ```
 
 ### Print a PDF (Pages 1-2)
 
 ```powershell
-dotnet run -- "test_sample.pdf" -printer "Microsoft Print to PDF" -pages 1:2 -output "test.xps"
+dotnet run --project src/Printman -- "test_sample.pdf" -printer "Microsoft Print to PDF" -pages 1:2 -output "test.xps"
 ```
 
 ### Print an Image
 
 ```powershell
-dotnet run -- "sample.png" -printer "Microsoft Print to PDF" -output "output.xps"
+dotnet run --project src/Printman -- "sample.png" -printer "Microsoft Print to PDF" -output "output.xps"
 ```
 
 ### Start the Web Server
 
 ```powershell
-dotnet run -- server --port 5000
+dotnet run --project src/Printman -- server --port 5000
 ```
 
 Then navigate to `http://localhost:5000` in your browser.
@@ -139,39 +156,26 @@ Then navigate to `http://localhost:5000` in your browser.
 ## Project Structure Overview
 
 ```
-Printman/
-├── Core/
-│   ├── Abstractions/            # Fine-grained interfaces (IPrinterDiscoveryService, IDocumentRenderer, etc.)
-│   └── Models/                  # Pure data structures / DTOs (PrintJobRequest, PrinterInfo, etc.)
-├── Services/                    # Concrete implementations
-│   ├── WindowsPrinterDiscoveryService.cs
-│   ├── PrintJobValidator.cs
-│   ├── DocumentRendererResolver.cs
-│   ├── FileCacheService.cs
-│   ├── PrintEventHub.cs
-│   ├── WindowsPrintService.cs
-│   └── Renderers/
-│       ├── PdfDocumentRenderer.cs
-│       ├── ImageDocumentRenderer.cs
-│       └── TextDocumentRenderer.cs
-├── Server/                      # Embedded Kestrel LAN Web Server
-│   ├── PrintingWebServerHost.cs
-│   ├── WebAssets.cs
-│   └── Web/
-│       └── index.html
-├── CLI/                         # Command-Line Parser & Subcommand Dispatcher
-│   ├── ParsedArguments.cs
-│   ├── CommandLineParser.cs
-│   └── CliHandler.cs
-├── Interactive/                 # Terminal UI & Interactive Wizard
-│   ├── ConsoleUi.cs
-│   └── InteractiveWizard.cs
-├── Printman.csproj              # Project configuration
-├── Program.cs                   # Composition Root & DI configuration
-└── tests/
-    └── fixtures/
-        ├── sample.txt           # Sample test text file
-        └── test_sample.pdf      # Sample 3-page test PDF
+printman/
+├── src/Printman/                # Shipping application (printman.exe)
+│   ├── Core/Abstractions/       # Fine-grained interfaces
+│   ├── Core/Models/             # Pure data structures / DTOs
+│   ├── Services/                # Print / discovery / cache implementations
+│   │   ├── Ipp/                 # IPP Everywhere codec, handler, attributes
+│   │   ├── Discovery/           # mDNS responder, DNS wire codec, firewall check
+│   │   └── Renderers/           # PDF / Image / Text / PWG / URF renderers
+│   ├── Server/                  # Embedded Kestrel LAN web server + IPP endpoints
+│   ├── CLI/                     # Command-line parser & subcommand dispatcher
+│   ├── Interactive/             # Launcher menu, wizard, printer picker
+│   ├── Printman.csproj
+│   ├── app.ico
+│   └── Program.cs               # Composition root & DI configuration
+├── tests/
+│   ├── Printman.Tests/          # MSTest 4 unit tests (net10.0-windows, MTP)
+│   └── fixtures/                # Sample text/PDF inputs shared by smoke tests
+├── Printman.slnx                # Solution (src + tests)
+├── global.json                  # .NET SDK pin + Microsoft.Testing.Platform runner
+└── Directory.Build.props        # Shared build settings
 ```
 
 ## Getting Help

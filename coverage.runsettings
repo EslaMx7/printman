@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration>
+  <CodeCoverage>
+    <!-- The test assembly itself is never measured. -->
+    <IncludeTestAssembly>false</IncludeTestAssembly>
+
+    <!-- Only measure the shipping assembly; framework/native modules are noise here. -->
+    <ModulePaths>
+      <Include>
+        <ModulePath>[\\/]printman\.dll$</ModulePath>
+      </Include>
+      <Exclude>
+        <ModulePath>.*[\\/]Printman\.Tests\.dll$</ModulePath>
+      </Exclude>
+    </ModulePaths>
+
+    <!--
+      Coverage is measured over unit-testable code only. Platform-bound layers (Windows
+      spooler, WinRT/GDI+ rendering, Kestrel hosting, console UI, sockets and the
+      composition root) are verified by the headless smoke tests in AGENTS.md instead,
+      so excluding them keeps the gate meaningful rather than artificially low.
+    -->
+    <Sources>
+      <Exclude>
+        <Source>.*[\\/]Program\.cs$</Source>
+        <Source>.*[\\/]CLI[\\/]CliHandler\.cs$</Source>
+        <Source>.*[\\/]Interactive[\\/].*\.cs$</Source>
+        <Source>.*[\\/]Server[\\/].*\.cs$</Source>
+        <Source>.*[\\/]Services[\\/]Windows.*\.cs$</Source>
+        <Source>.*[\\/]Services[\\/]Discovery[\\/]MdnsResponder\.cs$</Source>
+        <Source>.*[\\/]Services[\\/]Discovery[\\/]WindowsFirewallInspector\.cs$</Source>
+        <Source>.*[\\/]Services[\\/]Renderers[\\/].*\.cs$</Source>
+      </Exclude>
+    </Sources>
+  </CodeCoverage>
+</Configuration>

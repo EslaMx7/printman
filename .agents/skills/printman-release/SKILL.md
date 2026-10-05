@@ -21,14 +21,21 @@ Before triggering a release, ensure the code builds cleanly and passes all smoke
 ### Step 1.1: Verify Zero Warnings & Errors
 Run a compilation check to ensure strict .NET and WinRT compatibility:
 ```powershell
-dotnet build -t:Compile
+dotnet build Printman.slnx -t:Compile
 ```
 Expected result: `0 Warning(s), 0 Error(s)`.
 
-### Step 1.2: Headless Virtual Smoke Test
+### Step 1.2: Unit Tests & Coverage Ratchet
+```powershell
+dotnet test Printman.slnx --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+./eng/check-coverage.ps1
+```
+Expected result: all tests pass (`0 failed`) and the coverage gate reports `COVERAGE GATE PASSED`. The floors in `eng/check-coverage.ps1` may only be raised, never lowered.
+
+### Step 1.3: Headless Virtual Smoke Test
 Never send automated tests to a physical printer. Always verify using a virtual printer (`Print to PDF` or `XPS`) and output to a temporary file:
 ```powershell
-dotnet run -- "tests/fixtures/test_sample.pdf" -printer "XPS" -pages 1:2 -output "test_release.xps"
+dotnet run --project src/Printman -- "tests/fixtures/test_sample.pdf" -printer "XPS" -pages 1:2 -output "test_release.xps"
 Remove-Item "test_release.xps" -ErrorAction SilentlyContinue
 ```
 
@@ -99,12 +106,12 @@ Once pushed to `release`, GitHub Actions runs [`.github/workflows/release.yml`](
 2. **Extracts Curated Changelog:** Reads the corresponding section from `CHANGELOG.md`.
 3. **Builds Standalone Single-File Release:**
    ```powershell
-   dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=$version -o ./dist/standalone
+   dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=$version -o ./dist/standalone
    ```
    Compresses to `printman-v$version-win-x64.zip` (includes standalone `printman.exe`, `README.md`, `LICENSE`).
 4. **Builds Framework-Dependent Release:**
    ```powershell
-   dotnet publish -c Release -r win-x64 --self-contained false -p:Version=$version -o ./dist/portable
+   dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false -p:Version=$version -o ./dist/portable
    ```
    Compresses to `printman-v$version-win-x64-framework-dependent.zip`.
 5. **Creates GitHub Release:**

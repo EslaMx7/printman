@@ -66,6 +66,7 @@ public class PrintJobPipeline(
             // Release anything still waiting so callers observing tickets do not hang
             while (_queue.Reader.TryRead(out var leftover))
             {
+                Interlocked.Decrement(ref _pendingCount);
                 leftover.Finish(PipelineJobState.Canceled, "Server stopped.");
             }
         }

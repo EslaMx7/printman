@@ -17,6 +17,14 @@ $RECYCLE.BIN/
 
 # Test output prints
 *.xps
+
+# Test results / coverage output
+TestResults/
+*.trx
+*.coverage
+coverage.xml
+coverage.cobertura.xml
+*.coveragexml
 *.pdf.tmp
 [Cc]ache/
 

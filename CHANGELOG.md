@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PWG Raster (`.pwg`) and Apple Raster (`.urf`) renderers.
 - Read-only Windows Firewall check that prints the exact `netsh` commands when inbound printing traffic looks blocked.
 - Hidden `--output-dir <dir>` server option that prints every job to a file (headless testing with virtual printers).
+- Solution restructure: the app now lives in `src/Printman/` with `Printman.slnx`, `global.json` (SDK pin + Microsoft.Testing.Platform runner) and `Directory.Build.props`; existing file history is preserved.
+- Unit test project `tests/Printman.Tests` (MSTest 4 + Microsoft.Testing.Platform) with 52 tests covering the IPP wire codec (round-trips, nested collections, malformed input), PWG media mapping, page ranges and CLI parsing.
+- Code coverage ratchet: `coverage.runsettings` scopes measurement to unit-testable code and `eng/check-coverage.ps1` enforces minimum line/branch coverage in CI, including pull requests.
 
 ### Changed
 - Running `printman` without arguments now opens a small launcher menu (web UI, share default printer, choose printers to share, both); the print wizard, printer list and queue tools moved under "More tools". The wizard no longer prompts for port and PIN; use `serve` flags for custom values.
