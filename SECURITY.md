@@ -44,7 +44,7 @@ Printman implements several security measures to protect users, especially when 
 
 ### Strict File Type Whitelist & DoS Protection
 
-- Extension whitelist: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`, `.txt`, `.log`, `.csv`, `.json`, `.md`.
+- Extension whitelist: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`, `.txt`, `.log`, `.csv`, `.json`, `.md`, `.pwg`, `.urf`.
 - Kestrel request body limit and streaming byte counter enforcement (`MaxFileSizeBytes`).
 
 ### LRU Cache Quota Eviction
@@ -54,13 +54,29 @@ Printman implements several security measures to protect users, especially when 
 
 ### Serialized Print Spooling Queue
 
-- Background `Channel<WebBatchPrintRequest>` queue worker serializes concurrent print jobs.
+- Background queue worker (`IPrintJobPipeline`) serializes concurrent print jobs from the web UI and network (IPP) clients.
 - Prevents Windows GDI+/spooler race conditions and thread pool starvation.
 
 ### Generic Sanitized Error Responses
 
 - Internal stack traces and file paths are stripped from API client responses.
 - Detailed traces are logged to the console only.
+
+### Network Printer Sharing (`share` / `serve --share`)
+
+- Opt-in only. Without `share` or `--share`, no IPP endpoint is opened and nothing is announced on the network.
+- `printman share` (without `--web`) opens no web port at all: only `/ipp/*` is served and every other path returns 404.
+- The IPP endpoint (`/ipp/print/*`, port 631 by default) is **unauthenticated by design**: native print dialogs (AirPrint, Mopria, Windows) cannot send a PIN. Anyone on the local network can submit print jobs to shared printers.
+- It serves only `/ipp/*` on its own port; the PIN-protected web UI and `/api/*` are unreachable through it.
+- Requests from non-private source addresses (anything outside loopback, RFC 1918, link-local, CGNAT and IPv6 unique-local ranges) are rejected.
+- Requests must use `Content-Type: application/ipp`, so browsers cannot submit cross-site form posts.
+- Hardening limits:
+  - attribute section capped at 64 KB, with every length bounds-checked
+  - per-job document size limit
+  - at most 50 pending jobs per printer
+  - raster page dimensions validated before decoding
+- Documents are identified by content (magic bytes) and only formats with a registered renderer are accepted.
+- mDNS announcements are withdrawn (goodbye packets) when the server stops.
 
 ## ⚠️ Warning: `--no-auth` Flag
 

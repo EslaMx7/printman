@@ -1,8 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
 using Printman.CLI;
 using Printman.Core.Abstractions;
+using Printman.Core.Models;
 using Printman.Interactive;
 using Printman.Services;
+using Printman.Services.Discovery;
+using Printman.Services.Ipp;
 using Printman.Services.Renderers;
 
 namespace Printman;
@@ -66,6 +69,8 @@ public static class Program
         services.AddSingleton<IDocumentRenderer, PdfDocumentRenderer>();
         services.AddSingleton<IDocumentRenderer, ImageDocumentRenderer>();
         services.AddSingleton<IDocumentRenderer, TextDocumentRenderer>();
+        services.AddSingleton<IDocumentRenderer, PwgRasterDocumentRenderer>();
+        services.AddSingleton<IDocumentRenderer, UrfDocumentRenderer>();
         services.AddSingleton<IDocumentRendererResolver, DocumentRendererResolver>();
 
         // Core business logic & validation
@@ -76,6 +81,18 @@ public static class Program
         // Web Server, fast cache, and SSE services
         services.AddSingleton<IFileCacheService, FileCacheService>();
         services.AddSingleton<IPrintEventHub, PrintEventHub>();
+        services.AddSingleton<IPrintJobPipeline, PrintJobPipeline>();
+
+        // Network printer sharing: IPP Everywhere / AirPrint endpoint and mDNS / DNS-SD discovery
+        services.AddSingleton<IppServerSettings>();
+        services.AddSingleton<ISharedPrinterRegistry, SharedPrinterRegistry>();
+        services.AddSingleton<IIppJobStore, IppJobStore>();
+        services.AddSingleton<IppDocumentFormats>();
+        services.AddSingleton<IppPrinterAttributeBuilder>();
+        services.AddSingleton<IIppRequestHandler, IppRequestHandler>();
+        services.AddSingleton<IDnsSdServiceFactory, IppDnsSdServiceFactory>();
+        services.AddSingleton<IServiceAdvertiser, MdnsResponder>();
+        services.AddSingleton<IFirewallInspector, WindowsFirewallInspector>();
         services.AddSingleton<Server.PrintingWebServerHost>();
 
         // Presentation & execution layers

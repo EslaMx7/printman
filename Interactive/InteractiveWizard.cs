@@ -22,85 +22,115 @@ public class InteractiveWizard(
 
         while (true)
         {
+            var defaultPrinter = _printerDiscovery.GetDefaultPrinter();
+            string defaultLabel = defaultPrinter != null ? $" ({defaultPrinter.Name})" : "";
+
+            int choice = ConsoleMenu.PickOne("WHAT WOULD YOU LIKE TO DO?",
+            [
+                "Start the web UI (print from any phone or PC browser)",
+                $"Share the default printer on the network{defaultLabel}",
+                "Choose printers to share on the network...",
+                "Web UI + network printer sharing",
+                "More tools (print a document, printers, queue)",
+                "Exit"
+            ]);
+
+            switch (choice)
+            {
+                case 0:
+                    await RunServerAsync(new ServerOptions());
+                    break;
+                case 1:
+                    await RunServerAsync(new ServerOptions
+                    {
+                        EnableWebUi = false,
+                        Share = new ShareOptions { Enabled = true }
+                    });
+                    break;
+                case 2:
+                    await ShareSelectedPrintersAsync(enableWebUi: false);
+                    break;
+                case 3:
+                    await ShareSelectedPrintersAsync(enableWebUi: true);
+                    break;
+                case 4:
+                    await RunToolsMenuAsync();
+                    break;
+                default:
+                    Console.WriteLine("Goodbye!");
+                    return;
+            }
+        }
+    }
+
+    private async Task RunToolsMenuAsync()
+    {
+        while (true)
+        {
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("MAIN MENU:");
+            Console.WriteLine("MORE TOOLS:");
             Console.ResetColor();
-            Console.WriteLine("  [1] Start Mobile LAN Web Server");
-            Console.WriteLine("  [2] Print a Document (PDF, Image, Text)");
-            Console.WriteLine("  [3] List Installed Printers");
-            Console.WriteLine("  [4] Inspect Printer Details");
-            Console.WriteLine("  [5] View & Manage Print Spooler Queue");
-            Console.WriteLine("  [6] Exit");
-            Console.Write("\nSelect an option [1-6] (default 1): ");
+            Console.WriteLine("  [1] Print a Document (PDF, Image, Text)");
+            Console.WriteLine("  [2] List Installed Printers");
+            Console.WriteLine("  [3] Inspect Printer Details");
+            Console.WriteLine("  [4] View & Manage Print Spooler Queue");
+            Console.WriteLine("  [5] Return to Main Menu");
+            Console.Write("\nSelect an option [1-5] (default 1): ");
 
             var input = Console.ReadLine()?.Trim();
-            if (string.IsNullOrEmpty(input)) input = "1";
+            if (input == null) return;
+            if (input.Length == 0) input = "1";
 
             switch (input)
             {
                 case "1":
-                    await StartWebServerAsync();
-                    break;
-                case "2":
                     await RunPrintWizardAsync();
                     break;
-                case "3":
+                case "2":
                     ShowPrinters();
                     break;
-                case "4":
+                case "3":
                     ShowPrinterDetails();
                     break;
-                case "5":
+                case "4":
                     await ManageQueueAsync();
                     break;
-                case "6" or "q" or "exit":
-                    Console.WriteLine("Goodbye!");
+                case "5" or "q" or "exit":
                     return;
                 default:
-                    ConsoleUi.PrintWarning("Invalid option. Please enter 1, 2, 3, 4, 5, or 6.");
+                    ConsoleUi.PrintWarning("Invalid option. Please enter 1, 2, 3, 4, or 5.");
                     break;
             }
         }
     }
 
-    private async Task StartWebServerAsync()
+    private async Task ShareSelectedPrintersAsync(bool enableWebUi)
     {
-        Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("--- Mobile LAN Web Server ---");
-        Console.ResetColor();
-
-        int port = 5000;
-        Console.Write("Enter server port (Enter for default 5000): ");
-        var portInput = Console.ReadLine()?.Trim();
-        if (!string.IsNullOrEmpty(portInput))
+        var printers = _printerDiscovery.GetPrinters();
+        if (printers.Count == 0)
         {
-            if (int.TryParse(portInput, out int p) && p > 0 && p <= 65535)
-            {
-                port = p;
-            }
-            else
-            {
-                ConsoleUi.PrintWarning("Invalid port number. Falling back to port 5000.");
-            }
+            ConsoleUi.PrintWarning("No printers are installed; there is nothing to share.");
+            return;
         }
 
-        Console.Write("Require PIN protection? [Y/n] (default Yes): ");
-        var authInput = Console.ReadLine()?.Trim().ToLowerInvariant();
-        bool requireAuth = authInput != "n" && authInput != "no";
-        string? pin = null;
-
-        if (requireAuth)
+        var defaultName = printers.FirstOrDefault(p => p.IsDefault)?.Name;
+        var picked = PrinterPicker.PickMany(printers, defaultName != null ? [defaultName] : [], "Select the printers to share on the network:");
+        if (picked == null || picked.Count == 0)
         {
-            Console.Write("Enter custom PIN (Enter to auto-generate): ");
-            var customPin = Console.ReadLine()?.Trim();
-            if (!string.IsNullOrEmpty(customPin))
-            {
-                pin = customPin;
-            }
+            ConsoleUi.PrintWarning("No printers selected.");
+            return;
         }
 
+        await RunServerAsync(new ServerOptions
+        {
+            EnableWebUi = enableWebUi,
+            Share = new ShareOptions { Enabled = true, Printers = picked.Select(p => p.Name).ToList() }
+        });
+    }
+
+    private async Task RunServerAsync(ServerOptions options)
+    {
         using var cts = new CancellationTokenSource();
         ConsoleCancelEventHandler cancelHandler = (s, e) =>
         {
@@ -111,14 +141,7 @@ public class InteractiveWizard(
 
         try
         {
-            await _webServer.RunAsync(
-                port: port,
-                bindAddress: "0.0.0.0",
-                pin: pin,
-                requireAuth: requireAuth,
-                maxUploadMb: 50,
-                cacheLimitMb: 500,
-                ct: cts.Token);
+            await _webServer.RunAsync(options, cts.Token);
         }
         finally
         {

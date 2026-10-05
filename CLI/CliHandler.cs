@@ -30,13 +30,20 @@ public class CliHandler(
                 return HandlePrinterInfo(parsedArgs.QueryTarget);
 
             case CliCommandType.Server:
-                return await _webServer.RunAsync(
-                    parsedArgs.ServerPort,
-                    parsedArgs.BindAddress,
-                    parsedArgs.ServerPin,
-                    parsedArgs.RequireAuth,
-                    parsedArgs.MaxUploadMb,
-                    parsedArgs.CacheLimitMb);
+                if (parsedArgs.ShareAllPrinters)
+                {
+                    parsedArgs.SharedPrinterNames = _printerDiscovery.GetPrinters().Select(p => p.Name).ToList();
+                }
+                if (parsedArgs.SelectSharedPrinters && !SelectPrintersToShare(parsedArgs))
+                {
+                    return 0;
+                }
+                if (!parsedArgs.EnableWebUi && !parsedArgs.SharePrinters)
+                {
+                    // "share" with nothing to share and no web UI: nothing to run
+                    return 1;
+                }
+                return await _webServer.RunAsync(parsedArgs.ToServerOptions());
 
             case CliCommandType.Queue:
                 return await HandleQueueAsync(parsedArgs.TargetPrinterName, parsedArgs.WatchQueue);
@@ -54,6 +61,51 @@ public class CliHandler(
                 ConsoleUi.PrintError($"Unknown command type: {parsedArgs.Command}");
                 return 1;
         }
+    }
+
+    /// <summary>
+    /// Handles share --select / --share-select: lets the user tick printers to share. Returns false if the user cancelled.
+    /// </summary>
+    private bool SelectPrintersToShare(ParsedArguments parsedArgs)
+    {
+        var printers = _printerDiscovery.GetPrinters();
+        if (printers.Count == 0)
+        {
+            ConsoleUi.PrintWarning(parsedArgs.EnableWebUi
+                ? "No printers are installed; starting without network printer sharing."
+                : "No printers are installed; there is nothing to share.");
+            parsedArgs.SharePrinters = false;
+            return true;
+        }
+
+        // Printers named with --share start ticked; otherwise the default printer does
+        var preselected = parsedArgs.SharedPrinterNames
+            .Select(name => _printerDiscovery.FindPrinter(name)?.Name)
+            .OfType<string>()
+            .ToList();
+        if (preselected.Count == 0 && printers.FirstOrDefault(p => p.IsDefault) is { } defaultPrinter)
+        {
+            preselected.Add(defaultPrinter.Name);
+        }
+
+        var picked = PrinterPicker.PickMany(printers, preselected, "Select the printers to share on the network:");
+        if (picked == null)
+        {
+            ConsoleUi.PrintInfo("Cancelled.");
+            return false;
+        }
+
+        if (picked.Count == 0)
+        {
+            ConsoleUi.PrintWarning(parsedArgs.EnableWebUi
+                ? "No printers selected; starting the web server without network printer sharing."
+                : "No printers selected; there is nothing to share.");
+            parsedArgs.SharePrinters = false;
+            return true;
+        }
+
+        parsedArgs.SharedPrinterNames = picked.Select(p => p.Name).ToList();
+        return true;
     }
 
     private int HandleListPrinters()

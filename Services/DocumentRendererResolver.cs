@@ -18,7 +18,7 @@ public class DocumentRendererResolver(IEnumerable<IDocumentRenderer> renderers) 
         if (renderer == null)
         {
             throw new NotSupportedException(
-                $"File format '{extension}' is not supported. Supported formats include: .pdf, .png, .jpg, .jpeg, .bmp, .gif, .tiff, .txt, .log, .csv, .json, .md.");
+                $"File format '{extension}' is not supported. Supported formats include: .pdf, .png, .jpg, .jpeg, .bmp, .gif, .tiff, .txt, .log, .csv, .json, .md, .pwg, .urf.");
         }
 
         return renderer;

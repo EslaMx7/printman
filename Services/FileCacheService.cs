@@ -9,7 +9,8 @@ public class FileCacheService : IFileCacheService
 {
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".txt", ".log", ".csv", ".json", ".md"
+        ".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".txt", ".log", ".csv", ".json", ".md",
+        ".pwg", ".urf" // PWG / Apple raster from network (IPP) clients
     };
 
     private readonly string _cacheDirectory;
@@ -31,7 +32,10 @@ public class FileCacheService : IFileCacheService
         IndexExistingFiles();
     }
 
-    public async Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, CancellationToken ct = default)
+    public Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, CancellationToken ct = default) =>
+        StoreFileAsync(originalFileName, contentStream, MaxFileSizeBytes, ct);
+
+    public async Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, long maxFileSizeBytes, CancellationToken ct = default)
     {
         var sanitizedExt = Path.GetExtension(originalFileName).ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(sanitizedExt) || !AllowedExtensions.Contains(sanitizedExt))
@@ -58,9 +62,9 @@ public class FileCacheService : IFileCacheService
                 while ((bytesRead = await contentStream.ReadAsync(buffer, ct)) > 0)
                 {
                     totalBytesWritten += bytesRead;
-                    if (totalBytesWritten > MaxFileSizeBytes)
+                    if (totalBytesWritten > maxFileSizeBytes)
                     {
-                        throw new InvalidOperationException($"Uploaded file exceeds the maximum allowed size of {MaxFileSizeBytes / (1024 * 1024)} MB.");
+                        throw new InvalidOperationException($"Uploaded file exceeds the maximum allowed size of {maxFileSizeBytes / (1024 * 1024)} MB.");
                     }
 
                     await tempFileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);

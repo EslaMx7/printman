@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Network printer sharing (`printman share [printer ...]`, or `printman serve --share [printer]` alongside the web UI): shared printers appear as `Printman - <printer>` in the native print dialogs of iOS/iPadOS (AirPrint), Android (Mopria / Default Print Service), Windows, macOS and Linux.
+- IPP Everywhere / AirPrint print server (port 631, `--ipp-port`) supporting Print-Job, Validate-Job, Create-Job, Send-Document, Close-Job, Get-Jobs, Get-Job-Attributes, Cancel-Job, Cancel-My-Jobs, Identify-Printer and Get-Printer-Attributes.
+- `printman share --select` (alias `share-select`; `serve --share-select` with the web UI): choose the printers to share from an interactive checklist; named printers start ticked.
+- `printman share --all` shares every installed printer; `printman share --web` also starts the web UI.
+- `printman share` runs network printing on its own: no web UI, API, PIN or web port.
+- Built-in mDNS / DNS-SD responder (`_ipp._tcp` with `_universal` and `_print` subtypes); disable with `--no-mdns`.
+- PWG Raster (`.pwg`) and Apple Raster (`.urf`) renderers.
+- Read-only Windows Firewall check that prints the exact `netsh` commands when inbound printing traffic looks blocked.
+- Hidden `--output-dir <dir>` server option that prints every job to a file (headless testing with virtual printers).
+
+### Changed
+- Running `printman` without arguments now opens a small launcher menu (web UI, share default printer, choose printers to share, both); the print wizard, printer list and queue tools moved under "More tools". The wizard no longer prompts for port and PIN; use `serve` flags for custom values.
+- The serialized print queue is now a shared `IPrintJobPipeline` service used by both the web UI and network printing.
+- Startup banner lists addresses of adapters with a default gateway (Wi-Fi / Ethernet) before virtual and VPN adapters.
+
 ## [1.0.0] - 2026-10-03
 
 ### Added

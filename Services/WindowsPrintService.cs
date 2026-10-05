@@ -162,7 +162,15 @@ public class WindowsPrintService(
                 {
                     // Use MarginBounds for safe printable boundary (or PageBounds if fitToPage)
                     Rectangle printableArea = e.MarginBounds;
-                    if (printableArea.Width <= 0 || printableArea.Height <= 0)
+                    if (request.FullPage)
+                    {
+                        // Graphics origin sits at the hard margin; shift back so the page maps onto the physical sheet
+                        printableArea = e.PageBounds;
+                        printableArea.Offset(
+                            -(int)Math.Round(e.PageSettings.HardMarginX),
+                            -(int)Math.Round(e.PageSettings.HardMarginY));
+                    }
+                    else if (printableArea.Width <= 0 || printableArea.Height <= 0)
                     {
                         printableArea = e.PageBounds;
                     }

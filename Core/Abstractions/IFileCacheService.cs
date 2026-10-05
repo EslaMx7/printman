@@ -11,6 +11,12 @@ public interface IFileCacheService
     Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, CancellationToken ct = default);
 
     /// <summary>
+    /// Same as <see cref="StoreFileAsync(string, Stream, CancellationToken)"/> with an explicit size limit
+    /// (used for network print jobs, which have their own quota).
+    /// </summary>
+    Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, long maxFileSizeBytes, CancellationToken ct = default);
+
+    /// <summary>
     /// Gets a cached file result by fileId/hash, or null if not found.
     /// </summary>
     FileCacheResult? GetFile(string fileId);

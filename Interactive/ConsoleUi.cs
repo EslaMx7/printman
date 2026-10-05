@@ -213,6 +213,16 @@ COMMANDS:
                                          --no-auth (disable PIN requirement),
                                          --max-upload-mb <n> (default: 50),
                                          --cache-limit-mb <n> (default: 500)
+                                         --share [printer], --share-select (also share network
+                                                printers, see ""share"")
+  share [printer ...]           Share printers as network printers, without the web UI.
+                                Shows up as ""Printman - <printer>"" in iPhone/iPad (AirPrint),
+                                Android, Windows, macOS & Linux print dialogs (no PIN).
+                                No name shares the default printer; partial names work.
+                                Options: --select (pick printers from a checklist),
+                                         --all (every installed printer),
+                                         --web (also start the web UI; accepts serve options),
+                                         --ipp-port <n> (default: 631), --no-mdns (no discovery)
   queue, q [printer] [--watch]  Inspect real-time Windows Spooler & pipeline queue
   cancel <job-id> [-p <name>]   Cancel a specific print job by ID
   purge [printer]               Purge / cancel all jobs on a printer queue
@@ -236,6 +246,7 @@ SUPPORTED FILE TYPES:
   PDF documents:                .pdf (Native high-resolution WinRT engine)
   Images:                       .png, .jpg, .jpeg, .bmp, .gif, .tiff
   Text / Code files:            .txt, .log, .csv, .json, .md, .xml, .yaml
+  Driverless raster:            .pwg (PWG Raster), .urf (Apple Raster / AirPrint)
 
 EXAMPLES:
   printman.exe ""./doc.pdf""
@@ -255,6 +266,12 @@ EXAMPLES:
 
   printman.exe list
       Lists all detected printers on this machine.
+
+  printman.exe share ""HP Laser"" ""Canon""
+      Two network printers that phones and PCs find in their print dialogs (no web UI).
+
+  printman.exe share --web
+      Shares the default printer and also starts the web UI.
 
   printman.exe info ""HP LaserJet""
       Shows paper trays, duplex support, and capabilities of the printer.
