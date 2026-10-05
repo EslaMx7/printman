@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Printman/Printman.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Printman.Tests/Printman.Tests.csproj" />
+  </Folder>
+</Solution>

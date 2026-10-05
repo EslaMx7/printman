@@ -121,7 +121,7 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.semver.outputs.VERSION }}"
-          dotnet publish -c Release -r win-x64 --self-contained true `
+          dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true `
             -p:Version=$ver `
             -o ./dist/standalone
@@ -133,7 +133,7 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.semver.outputs.VERSION }}"
-          dotnet publish -c Release -r win-x64 --self-contained false `
+          dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false `
             -p:Version=$ver `
             -o ./dist/portable
 

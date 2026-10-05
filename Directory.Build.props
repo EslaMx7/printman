@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- Settings shared by every project in the solution. Project-specific values win. -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>

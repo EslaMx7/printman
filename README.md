@@ -326,11 +326,14 @@ A small menu (↑/↓ and Enter, or press the number) lets you choose what to st
 
 ### Development Build
 ```powershell
-# Build the project
+# Build the solution (src + tests)
 dotnet build
 
+# Run the unit test suite
+dotnet test
+
 # Run the CLI directly
-dotnet run -- list
+dotnet run --project src/Printman -- list
 ```
 
 ### Publishing Releases
@@ -338,13 +341,13 @@ dotnet run -- list
 #### Option A: Standalone Single Executable (Recommended)
 Bundles the .NET runtime into a single executable. Runs on any Windows 10/11 computer without installing .NET:
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish/standalone
+dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish/standalone
 ```
 
 #### Option B: Framework-Dependent (Lightweight)
 Creates a smaller binary package. Requires the target computer to have the .NET 10 Desktop Runtime installed:
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained false -o ./publish/portable
+dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false -o ./publish/portable
 ```
 
 ---
