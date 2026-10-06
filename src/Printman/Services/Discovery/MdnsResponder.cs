@@ -41,7 +41,7 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
     public string HostName => $"{_hostLabel}.local";
     public IReadOnlyList<string> Warnings => _warnings;
 
-    private sealed record Endpoint(Socket Socket, IPAddress Address, string InterfaceName);
+    private sealed record Endpoint(Socket Socket, IPAddress Address, string InterfaceName, int InterfaceIndex);
 
     // ---------------------------------------------------------------- Lifecycle
 
@@ -95,7 +95,7 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
     private void OpenEndpoints()
     {
         var endpoints = new List<Endpoint>();
-        foreach (var (address, name) in GetMulticastInterfaces())
+        foreach (var (address, name, index) in GetMulticastInterfaces())
         {
             Socket? socket = null;
             try
@@ -103,16 +103,33 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
                 socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 socket.ExclusiveAddressUse = false;
                 socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                DisableConnectionResetReporting(socket);
 
-                // Binding to the interface address keeps traffic per-interface (same approach as Bonjour on Windows)
-                socket.Bind(new IPEndPoint(address, MdnsPort));
+                if (OperatingSystem.IsWindows())
+                {
+                    DisableConnectionResetReporting(socket);
+
+                    // Binding to the interface address keeps traffic per-interface (same approach as Bonjour on Windows)
+                    socket.Bind(new IPEndPoint(address, MdnsPort));
+                }
+                else
+                {
+                    // Linux / macOS only deliver multicast to sockets bound to the wildcard address; packets are
+                    // attributed to an interface by IP_PKTINFO in the receive loop instead.
+                    // macOS' mDNSResponder holds the port with SO_REUSEPORT, so ours must set it too.
+                    if (OperatingSystem.IsMacOS())
+                    {
+                        const int SolSocket = 0xffff, SoReusePort = 0x0200;
+                        socket.SetRawSocketOption(SolSocket, SoReusePort, BitConverter.GetBytes(1));
+                    }
+                    socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
+                    socket.Bind(new IPEndPoint(IPAddress.Any, MdnsPort));
+                }
                 socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, new MulticastOption(MulticastGroup, address));
                 socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface, address.GetAddressBytes());
                 socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 255);
                 socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, true);
 
-                var ep = new Endpoint(socket, address, name);
+                var ep = new Endpoint(socket, address, name, index);
                 endpoints.Add(ep);
                 _ = Task.Run(() => ReceiveLoopAsync(ep, _cts!.Token));
             }
@@ -286,12 +303,37 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
     private async Task ReceiveLoopAsync(Endpoint ep, CancellationToken ct)
     {
         var buffer = new byte[9000];
+        bool wildcardBound = !OperatingSystem.IsWindows();
         while (!ct.IsCancellationRequested)
         {
-            SocketReceiveFromResult result;
+            int receivedBytes;
+            EndPoint remoteEndPoint;
+            Endpoint target = ep;
             try
             {
-                result = await ep.Socket.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.Any, 0), ct);
+                if (wildcardBound)
+                {
+                    var received = await ep.Socket.ReceiveMessageFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.Any, 0), ct);
+                    var packet = received.PacketInformation;
+                    if (IsMulticast(packet.Address))
+                    {
+                        // Every wildcard socket gets a copy: only the socket of the arrival interface handles it
+                        if (packet.Interface != ep.InterfaceIndex) continue;
+                    }
+                    else
+                    {
+                        // Unicast reaches just one of the sockets: answer through the arrival interface's endpoint
+                        target = _endpoints.FirstOrDefault(e => e.InterfaceIndex == packet.Interface) ?? ep;
+                    }
+                    receivedBytes = received.ReceivedBytes;
+                    remoteEndPoint = received.RemoteEndPoint;
+                }
+                else
+                {
+                    var result = await ep.Socket.ReceiveFromAsync(buffer, SocketFlags.None, new IPEndPoint(IPAddress.Any, 0), ct);
+                    receivedBytes = result.ReceivedBytes;
+                    remoteEndPoint = result.RemoteEndPoint;
+                }
             }
             catch (OperationCanceledException) { return; }
             catch (ObjectDisposedException) { return; }
@@ -307,14 +349,14 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
             DnsMessage message;
             try
             {
-                message = DnsMessage.Parse(buffer.AsSpan(0, result.ReceivedBytes));
+                message = DnsMessage.Parse(buffer.AsSpan(0, receivedBytes));
             }
             catch (FormatException)
             {
                 continue;
             }
 
-            var source = (IPEndPoint)result.RemoteEndPoint;
+            var source = (IPEndPoint)remoteEndPoint;
             try
             {
                 if (message.IsResponse)
@@ -323,7 +365,7 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
                 }
                 else if (_active)
                 {
-                    await AnswerAsync(ep, message, source, ct);
+                    await AnswerAsync(target, message, source, ct);
                 }
             }
             catch (OperationCanceledException) { return; }
@@ -476,9 +518,12 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
 
     // ---------------------------------------------------------------- Interfaces
 
-    private static List<(IPAddress Address, string Name)> GetMulticastInterfaces()
+    private static bool IsMulticast(IPAddress address) =>
+        address.AddressFamily == AddressFamily.InterNetwork && (address.GetAddressBytes()[0] & 0xF0) == 0xE0;
+
+    private static List<(IPAddress Address, string Name, int Index)> GetMulticastInterfaces()
     {
-        var result = new List<(IPAddress, string)>();
+        var result = new List<(IPAddress, string, int)>();
         try
         {
             foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -490,13 +535,16 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
                     continue;
                 }
 
-                foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+                var properties = ni.GetIPProperties();
+                int index = -1;
+                try { index = properties.GetIPv4Properties()?.Index ?? -1; } catch (PlatformNotSupportedException) { }
+                foreach (var ua in properties.UnicastAddresses)
                 {
                     var ip = ua.Address;
                     if (ip.AddressFamily != AddressFamily.InterNetwork || IPAddress.IsLoopback(ip)) continue;
                     var b = ip.GetAddressBytes();
                     if (b[0] == 169 && b[1] == 254) continue; // link-local without DHCP: not reachable by phones
-                    result.Add((ip, ni.Name));
+                    result.Add((ip, ni.Name, index));
                 }
             }
         }
@@ -520,7 +568,7 @@ public sealed class MdnsResponder : IServiceAdvertiser, IDisposable
             else if (sb.Length > 0 && sb[^1] != '-') sb.Append('-');
         }
         var label = sb.ToString().Trim('-');
-        if (label.Length == 0) label = "windows";
+        if (label.Length == 0) label = "host";
         if (label.Length > 40) label = label[..40].TrimEnd('-');
         return $"{label}-printman";
     }

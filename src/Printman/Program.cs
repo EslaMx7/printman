@@ -4,6 +4,9 @@ using Printman.Core.Abstractions;
 using Printman.Core.Models;
 using Printman.Interactive;
 using Printman.Services;
+#if !WINDOWS
+using Printman.Services.Cups;
+#endif
 using Printman.Services.Discovery;
 using Printman.Services.Ipp;
 using Printman.Services.Renderers;
@@ -62,8 +65,19 @@ public static class Program
 
     public static void ConfigureServices(IServiceCollection services)
     {
-        // Core discovery and rendering abstractions
+        // OS print system: Windows spooler + GDI+, or CUPS on Linux / macOS (chosen at build time, see Printman.csproj)
+#if WINDOWS
         services.AddSingleton<IPrinterDiscoveryService, WindowsPrinterDiscoveryService>();
+        services.AddTransient<IPrintService, WindowsPrintService>();
+        services.AddSingleton<IPrintQueueService, WindowsPrintQueueService>();
+        services.AddSingleton<IFirewallInspector, WindowsFirewallInspector>();
+#else
+        services.AddSingleton<CupsClient>();
+        services.AddSingleton<IPrinterDiscoveryService, CupsPrinterDiscoveryService>();
+        services.AddTransient<IPrintService, CupsPrintService>();
+        services.AddSingleton<IPrintQueueService, CupsPrintQueueService>();
+        services.AddSingleton<IFirewallInspector, NoFirewallInspector>();
+#endif
 
         // Register document renderers (Open/Closed principle: easily extend with new renderers)
         services.AddSingleton<IDocumentRenderer, PdfDocumentRenderer>();
@@ -75,8 +89,6 @@ public static class Program
 
         // Core business logic & validation
         services.AddTransient<IPrintJobValidator, PrintJobValidator>();
-        services.AddTransient<IPrintService, WindowsPrintService>();
-        services.AddSingleton<IPrintQueueService, WindowsPrintQueueService>();
 
         // Web Server, fast cache, and SSE services
         services.AddSingleton<IFileCacheService, FileCacheService>();
@@ -92,7 +104,6 @@ public static class Program
         services.AddSingleton<IIppRequestHandler, IppRequestHandler>();
         services.AddSingleton<IDnsSdServiceFactory, IppDnsSdServiceFactory>();
         services.AddSingleton<IServiceAdvertiser, MdnsResponder>();
-        services.AddSingleton<IFirewallInspector, WindowsFirewallInspector>();
         services.AddSingleton<Server.PrintingWebServerHost>();
 
         // Presentation & execution layers

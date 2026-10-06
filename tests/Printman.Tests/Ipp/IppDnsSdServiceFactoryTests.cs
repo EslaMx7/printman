@@ -34,7 +34,7 @@ public sealed class IppDnsSdServiceFactoryTests
     {
         var printer = IppTestMessages.Printer("hp", "HP LaserJet");
         var registry = new FakeSharedPrinterRegistry();
-        registry.Capabilities[printer.WindowsName] =
+        registry.Capabilities[printer.SystemName] =
             TestData.Printer("HP LaserJet", supportsColor: true, canDuplex: true);
         var settings = new IppServerSettings { IppPort = 631, WebUiEnabled = false, MdnsHostName = null };
 
@@ -48,8 +48,8 @@ public sealed class IppDnsSdServiceFactoryTests
         Assert.AreEqual("1", txt["txtvers"]);
         Assert.AreEqual("1", txt["qtotal"]);
         Assert.AreEqual(printer.ResourcePath, txt["rp"]);
-        Assert.AreEqual($"Printman {printer.WindowsName}", txt["ty"]);
-        Assert.AreEqual($"(Printman {printer.WindowsName})", txt["product"]);
+        Assert.AreEqual($"Printman {printer.SystemName}", txt["ty"]);
+        Assert.AreEqual($"(Printman {printer.SystemName})", txt["product"]);
         Assert.AreEqual(Environment.MachineName, txt["note"]);
         Assert.AreEqual(printer.Uuid.ToString(), txt["UUID"]);
         Assert.AreEqual("application/pdf,application/octet-stream", txt["pdl"]);
@@ -89,7 +89,7 @@ public sealed class IppDnsSdServiceFactoryTests
     {
         var printer = IppTestMessages.Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Capabilities[printer.WindowsName] = TestData.Printer(
+        registry.Capabilities[printer.SystemName] = TestData.Printer(
             paperSizes: [new PaperSizeOption("A3", 8, 1169, 1654)]);
 
         var txt = Txt(Factory(registry).Create([printer])[0]);
@@ -102,14 +102,14 @@ public sealed class IppDnsSdServiceFactoryTests
     {
         var printer = IppTestMessages.Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Capabilities[printer.WindowsName] = TestData.Printer(canDuplex: true);
+        registry.Capabilities[printer.SystemName] = TestData.Printer(canDuplex: true);
 
         var service = Factory(registry, Formats(".pdf", ".urf")).Create([printer])[0];
         var txt = Txt(service);
 
         CollectionAssert.AreEqual(new[] { "_universal", "_print" }, service.Subtypes.ToArray());
         Assert.AreEqual(
-            string.Join(',', IppPrinterAttributeBuilder.GetUrfSupported(registry.Capabilities[printer.WindowsName])),
+            string.Join(',', IppPrinterAttributeBuilder.GetUrfSupported(registry.Capabilities[printer.SystemName])),
             txt["URF"]);
         Assert.IsTrue(txt["URF"].EndsWith(",DM1", StringComparison.Ordinal));
         Assert.IsTrue(txt["pdl"].Contains(IppDocumentFormats.Urf, StringComparison.Ordinal));

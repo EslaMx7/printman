@@ -353,4 +353,31 @@ public sealed class FileCacheServiceTests
 
         Assert.IsFalse(Directory.Exists(temp.Path));
     }
+
+    [TestMethod]
+    public void DefaultCacheDirectory_Windows_IsNextToExecutable()
+    {
+        Assert.AreEqual(
+            Path.Combine(@"C:\Tools\printman", "cache"),
+            FileCacheService.DefaultCacheDirectory(windows: true, @"C:\Tools\printman", "/xdg", "/home/me"));
+    }
+
+    [TestMethod]
+    public void DefaultCacheDirectory_Unix_UsesXdgCacheHome()
+    {
+        Assert.AreEqual(
+            Path.Combine("/var/cache/me", "printman"),
+            FileCacheService.DefaultCacheDirectory(windows: false, "/usr/local/bin", "/var/cache/me", "/home/me"));
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow("")]
+    [DataRow("relative/cache")]
+    public void DefaultCacheDirectory_Unix_FallsBackToHomeCache(string? xdgCacheHome)
+    {
+        Assert.AreEqual(
+            Path.Combine("/home/me", ".cache", "printman"),
+            FileCacheService.DefaultCacheDirectory(windows: false, "/usr/local/bin", xdgCacheHome, "/home/me"));
+    }
 }

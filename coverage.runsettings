@@ -28,7 +28,7 @@
         <Source>.*[\\/]Server[\\/].*\.cs$</Source>
         <Source>.*[\\/]Services[\\/]Windows.*\.cs$</Source>
         <Source>.*[\\/]Services[\\/]Discovery[\\/]MdnsResponder\.cs$</Source>
-        <Source>.*[\\/]Services[\\/]Discovery[\\/]WindowsFirewallInspector\.cs$</Source>
+        <Source>.*[\\/]Services[\\/]Cups[\\/].*\.cs$</Source>
         <Source>.*[\\/]Services[\\/]Renderers[\\/].*\.cs$</Source>
       </Exclude>
     </Sources>

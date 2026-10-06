@@ -35,8 +35,8 @@ public sealed class FakeSharedPrinterRegistry : ISharedPrinterRegistry
     }
 
     public PrinterInfo? GetCapabilities(SharedPrinter printer) =>
-        Capabilities.TryGetValue(printer.WindowsName, out var info) ? info : null;
+        Capabilities.TryGetValue(printer.SystemName, out var info) ? info : null;
 
     public PrinterStatusInfo? GetStatus(SharedPrinter printer) =>
-        Statuses.TryGetValue(printer.WindowsName, out var status) ? status : null;
+        Statuses.TryGetValue(printer.SystemName, out var status) ? status : null;
 }

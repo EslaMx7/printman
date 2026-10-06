@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Linux, macOS and Raspberry Pi support (`linux-x64`, `linux-arm64`, `linux-arm`, `osx-x64`, `osx-arm64`). Printing, printer discovery, queue, cancel/purge, the web UI and network sharing go through CUPS over IPP (its local socket, as the calling user); documents are handed to CUPS as-is, so no PDF engine is bundled. Print-to-file (`-output`, `--output-dir`) uses `cupsfilter` and writes PDF.
+- Dependency-free PDF page counter for platforms without WinRT (falls back to `pdfinfo` / `qpdf` for encrypted files).
+- Release archives for Linux and macOS, and Linux/macOS CI jobs (the Linux job prints to a CUPS virtual PDF printer).
+
+### Changed
+- On Linux and macOS the default IPP port is `8631` (CUPS owns `631`), the file cache lives in `$XDG_CACHE_HOME/printman` (default `~/.cache/printman`), and the mDNS responder binds the wildcard address so it coexists with Avahi / mDNSResponder.
+- `IDocumentRenderer` is platform neutral (format + page count); GDI+ page drawing moved to the Windows-only `IGdiDocumentRenderer`. `SharedPrinter.WindowsName` is now `SystemName`.
+
+### Fixed
+- Absolute Unix paths (`/home/me/doc.pdf`) are no longer rejected as unknown `/switch` arguments.
+
 ## [1.1.0] - 2026-10-06
 
 ### Added

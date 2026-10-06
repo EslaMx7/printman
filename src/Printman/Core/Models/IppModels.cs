@@ -322,7 +322,7 @@ public sealed class IppServerSettings
 {
     public int WebPort { get; set; } = 5000;
     public bool WebUiEnabled { get; set; } = true;
-    public int IppPort { get; set; } = 631;
+    public int IppPort { get; set; } = ShareOptions.DefaultIppPort;
     public long MaxJobBytes { get; set; } = 256L * 1024 * 1024;
     public int MaxPendingJobs { get; set; } = 50;
 
@@ -335,16 +335,16 @@ public sealed class IppServerSettings
 }
 
 /// <summary>
-/// A Windows printer exposed on the network.
+/// A local printer (Windows or CUPS queue) exposed on the network.
 /// </summary>
 public sealed class SharedPrinter
 {
-    public required string WindowsName { get; init; }
+    public required string SystemName { get; init; }
 
     /// <summary>URL-safe identifier used in /ipp/print/{slug}.</summary>
     public required string Slug { get; init; }
 
-    /// <summary>Name shown to clients: "Printman - {WindowsName}".</summary>
+    /// <summary>Name shown to clients: "Printman - {SystemName}".</summary>
     public required string DisplayName { get; init; }
     public required Guid Uuid { get; init; }
 
