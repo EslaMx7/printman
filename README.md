@@ -3,22 +3,77 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)]()
+[![Driverless](https://img.shields.io/badge/Driverless-AirPrint%20%7C%20Mopria%20%7C%20IPP-2ea44f)]()
 [![Download](https://img.shields.io/badge/Download-Latest%20Release-0078D6?logo=windows)](https://github.com/EslaMx7/printman/releases/latest)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/eslamx7)
 
-Give your old USB printer Wi-Fi superpowers. A small, zero-dependency Windows tool to print documents from your phone over local Wi-Fi to old USB Windows printers.
+Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency Windows tool that turns any USB printer into a **native network printer** - it appears in the print dialog of iPhone, iPad, Android, Windows, macOS and Linux, and works without installing an app, a driver or a cloud account.
 
 ---
 
 ## ⚡ TL;DR
 
-Give your old USB printer Wi-Fi superpowers:
-1. **Start the server on your Windows PC:**
-   ```powershell
-   ./printman serve --no-auth
-   ```
-2. **Open the link on your phone:** Connect via local Wi-Fi (e.g. `http://192.168.1.50:5000`).
-3. **Print:** Send PDFs, images, or documents directly from your mobile browser to your Windows printer.
+**Turn your USB printer into a real Wi-Fi printer. One command, nothing to install:**
+
+```powershell
+./printman share
+```
+
+Then open the print dialog on any device on the same Wi-Fi and pick **`Printman - <your printer>`**. It simply appears like a normal network printer, with nothing to install.
+
+**Prefer printing from a browser instead?** Run `./printman serve` and open the link it shows on your phone.
+
+---
+
+## 🌐 A real Wi-Fi printer, in one command
+
+`printman share` turns your Windows PC into an IPP Everywhere / AirPrint print server. Your USB printer stops being "the one that needs the computer" and becomes a normal printer on your network - discoverable by every phone and laptop, with no software to install anywhere.
+
+<p align="center">
+  <a href="docs/images/printman_desktop_cli_share_dark.png">
+    <img src="docs/images/printman_desktop_cli_share_dark.png" alt="printman share announcing shared network printers and their ipp:// URLs in Windows Terminal" width="100%" />
+  </a>
+</p>
+
+```powershell
+printman.exe share                      # share the default printer
+printman.exe share "HP Laser" "Canon"   # share specific printers (partial names work)
+printman.exe share --select             # pick printers from a checklist
+printman.exe share --all                # share every installed printer
+```
+
+**It shows up where you already print:**
+
+| Your device | How to print |
+| :--- | :--- |
+| **iPhone / iPad** | AirPrint - Share -> Print -> pick `Printman - <printer>` |
+| **Android** | Mopria / Default Print Service - Print -> select the printer |
+| **Windows 10 / 11** | Settings -> Bluetooth & devices -> Printers & scanners -> Add device |
+| **macOS** | Add Printer -> Default (Bonjour) |
+| **Linux / ChromeOS** | Appears automatically as a driverless (IPP Everywhere) printer |
+
+**Why it is different**
+
+- **Nothing to install, and nothing leaves your network.** Printman uses the same IPP Everywhere and mDNS (Bonjour) standards as a Wi-Fi printer, so devices need no app or driver and no cloud account is involved.
+- **One command.** No configuration on the PC, nothing to install on the phones.
+- **Zero dependencies.** Pure .NET + native Windows APIs - the same binary also handles PDF, JPEG/PNG, PWG Raster and Apple URF jobs.
+- **One queue.** Network jobs appear in the same live spooler dashboard as web uploads (and can be cancelled there).
+- **Private by default.** Only private / LAN addresses are accepted; nothing ever leaves your network.
+
+> [!IMPORTANT]
+> Native print dialogs cannot type a PIN, so **anyone on your local network can print to shared printers** (exactly like a normal Wi-Fi printer). PIN protection still applies to the web UI (`serve` / `share --web`).
+
+### 🧭 Network printer vs. web UI
+
+| | `printman share` - Network printer | `printman serve` - Web UI |
+| :--- | :--- | :--- |
+| Where you print from | Any app's **normal print dialog** | A **web page** you open in a browser |
+| Install on the device | **Nothing** | Nothing (just open the link) |
+| Works with | iPhone/iPad, Android, Windows, macOS, Linux | Any browser |
+| PIN / authentication | Not possible (prints like a real printer) | Yes - PIN protected |
+| Best for | Everyday printing from phones and laptops | Uploading files, live queue, diagnostics |
+
+**Want both?** `printman share --web` (or `printman serve --share`) runs the network printer and the web UI in one process.
 
 ---
 
@@ -38,17 +93,17 @@ Give your old USB printer Wi-Fi superpowers:
 
 * **The Solution:**  
   Modern Wi-Fi printers are often fragile, expensive, and dependent on cloud accounts. Instead of replacing functional hardware, I built **Printman**.  
-  Printman converts the host Windows machine into a lightweight, zero-dependency local print server (`printman serve`). It gives our 12-year-old USB printer instant wireless printing capabilities.  
-  Now, my wife prints assignments from her phone and my kids can print their homework from their iPad directly.
+  Printman turns the host Windows machine into a lightweight, zero-dependency print server. With `printman share`, our 12-year-old USB printer now appears as a normal Wi-Fi printer in every phone and laptop's print dialog; `printman serve` adds a phone-friendly web UI.  
+  Now, my wife prints assignments from her phone and my kids print their homework from their iPad directly, without installing anything on their devices or replacing the printer.
 
 ---
 
 ## 🌟 What It Does
 
-- **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers (assuming the Printer driver is installed).
-- **Prints Common Formats:** Handles PDF documents, images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
+- **⭐ Real Network Printer (AirPrint / Mopria / IPP Everywhere):** Run `printman share` and your printer appears as `Printman - <printer>` in the **native print dialog** of iPhones, iPads, Android phones, Windows, macOS and Linux, with nothing to install on the device and no cloud account required.
 - **Phone-Ready Web UI:** Run `printman serve` to launch a mobile web page. Anyone on your home Wi-Fi can open it and print from their phone.
-- **Real Network Printer (AirPrint / Mopria / IPP):** Run `printman share` and your printer appears as `Printman - <printer>` in the native print dialog of iPhones, iPads, Android phones, Windows, macOS and Linux. No app, no web page, no drivers.
+- **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers (assuming the printer driver is installed).
+- **Prints Common Formats:** Handles PDF documents, images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
 - **Live Spooler & Hardware Diagnostics:** Interrogates the native Windows Spooler and hardware status flags in real time (Paper Jam, Out of Paper, Offline, Door Open, Busy, Paused).
 - **Duplicate Prevention & Queue Control:** Proactively warns before submitting duplicate print jobs when jobs are pending/stuck; allows canceling individual jobs or purging all jobs in one click.
 - **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided interactive terminal wizard.
@@ -70,6 +125,13 @@ Pre-built Windows binaries are available on [**GitHub Releases**](https://github
 ---
 
 ## 📸 Interface Preview
+
+### 🌐 Shared Network Printer (`share`)
+<p align="center">
+  <a href="docs/images/printman_desktop_cli_share_dark.png">
+    <img src="docs/images/printman_desktop_cli_share_dark.png" alt="printman share announcing shared network printers and their ipp:// URLs in Windows Terminal" width="100%" />
+  </a>
+</p>
 
 ### CLI Server Terminal
 <p align="center">
@@ -183,7 +245,7 @@ printman.exe share --all
 printman.exe share --web
 ```
 
-`share` runs on its own: no web page, no PIN, and no web port is opened. Add `--web` (or use `serve --share`) when you want both.
+`share` runs on its own, without starting the web page, the PIN or the web port. Add `--web` (or use `serve --share`) when you want both.
 
 - **iPhone / iPad / Mac:** Share → Print → pick `Printman - HP LaserJet ...` (AirPrint).
 - **Android:** Print → select the printer (Default Print Service / Mopria).
@@ -195,7 +257,7 @@ How it works: printman runs an IPP Everywhere / AirPrint print server on port `6
 > [!IMPORTANT]
 > Native print dialogs cannot type a PIN, so **anyone on your local network can print to shared printers** (just like a normal Wi-Fi printer). The PIN only protects the web UI (`serve` / `share --web`). Requests from non-private IP addresses are rejected.
 
-**Firewall:** allow printman when Windows asks, and make sure your Wi-Fi is set to a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup.
+**Firewall:** the first time you share, Windows asks (with a UAC prompt) whether to allow printman on the network - approve it on a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup.
 
 ### 3. Quick Terminal Printing
 
@@ -268,13 +330,14 @@ A small menu (↑/↓ and Enter, or press the number) lets you choose what to st
 | Command | Aliases | Description | Example |
 | :--- | :--- | :--- | :--- |
 | `serve` | `server`, `--serve` | Start local LAN mobile web server | `printman serve --port 5000` |
-| `share` | `share-select` (= `share --select`) | Share printers as network printers (AirPrint / Mopria / IPP), no web UI | `printman share "HP Laser"` |
+| `share` ⭐ | `share-select` (= `share --select`) | **Flagship:** share printers as native network printers (AirPrint / Mopria / IPP Everywhere), no web UI | `printman share "HP Laser"` |
 | `queue` | `q`, `jobs` | Inspect spooler & pipeline queue (`--watch` for live dashboard) | `printman queue "HP" --watch` |
 | `cancel`| `abort` | Cancel a print job by its integer Job ID | `printman cancel 14` |
 | `purge` | `clear-queue` | Purge / clear all jobs on a printer queue | `printman purge "HP Laser"` |
 | `list`  | `-list`, `--list` | List all installed printers | `printman list` |
 | `info`  | `-info`, `--info` | Inspect printer capabilities & paper trays | `printman info "HP Laser"` |
 | `interactive` | `-i` | Launch the terminal menu (same as running without arguments) | `printman -i` |
+| `version` | `-v`, `--version` | Show the Printman version | `printman --version` |
 | `help`  | `-h`, `--help` | Show command reference | `printman help` |
 
 ### Print Flags

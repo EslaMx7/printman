@@ -23,6 +23,16 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Restore dependencies
+        run: dotnet restore Printman.slnx
+
+      - name: Test with coverage
+        run: dotnet test Printman.slnx --configuration Release --no-restore --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+
+      - name: Enforce coverage ratchet
+        shell: pwsh
+        run: ./eng/check-coverage.ps1
+
       - name: Determine Semantic Version
         id: semver
         shell: pwsh
