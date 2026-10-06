@@ -2,12 +2,12 @@
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6)]()
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20Raspberry%20Pi-0078D6)]()
 [![Driverless](https://img.shields.io/badge/Driverless-AirPrint%20%7C%20Mopria%20%7C%20IPP-2ea44f)]()
-[![Download](https://img.shields.io/badge/Download-Latest%20Release-0078D6?logo=windows)](https://github.com/EslaMx7/printman/releases/latest)
+[![Download](https://img.shields.io/badge/Download-Latest%20Release-0078D6)](https://github.com/EslaMx7/printman/releases/latest)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/eslamx7)
 
-Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency Windows tool that turns any USB printer into a **native network printer** - it appears in the print dialog of iPhone, iPad, Android, Windows, macOS and Linux, and works without installing an app, a driver or a cloud account.
+Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency tool for Windows, Linux, macOS and Raspberry Pi that turns any USB printer into a **native network printer** - it appears in the print dialog of iPhone, iPad, Android, Windows, macOS and Linux, and works without installing an app, a driver or a cloud account.
 
 ---
 
@@ -27,7 +27,7 @@ Then open the print dialog on any device on the same Wi-Fi and pick **`Printman 
 
 ## 🌐 A real Wi-Fi printer, in one command
 
-`printman share` turns your Windows PC into an IPP Everywhere / AirPrint print server. Your USB printer stops being "the one that needs the computer" and becomes a normal printer on your network - discoverable by every phone and laptop, with no software to install anywhere.
+`printman share` turns your Windows PC, Mac, Linux box or Raspberry Pi into an IPP Everywhere / AirPrint print server. Your USB printer stops being "the one that needs the computer" and becomes a normal printer on your network - discoverable by every phone and laptop, with no software to install anywhere.
 
 <p align="center">
   <a href="docs/images/printman_desktop_cli_share_dark.png">
@@ -56,7 +56,7 @@ printman.exe share --all                # share every installed printer
 
 - **Nothing to install, and nothing leaves your network.** Printman uses the same IPP Everywhere and mDNS (Bonjour) standards as a Wi-Fi printer, so devices need no app or driver and no cloud account is involved.
 - **One command.** No configuration on the PC, nothing to install on the phones.
-- **Zero dependencies.** Pure .NET + native Windows APIs - the same binary also handles PDF, JPEG/PNG, PWG Raster and Apple URF jobs.
+- **Zero dependencies.** Pure .NET + the OS print system (Windows APIs, or CUPS on Linux / macOS) - the same binary also handles PDF, JPEG/PNG, PWG Raster and Apple URF jobs.
 - **One queue.** Network jobs appear in the same live spooler dashboard as web uploads (and can be cancelled there).
 - **Private by default.** Only private / LAN addresses are accepted; nothing ever leaves your network.
 
@@ -102,9 +102,9 @@ printman.exe share --all                # share every installed printer
 
 - **⭐ Real Network Printer (AirPrint / Mopria / IPP Everywhere):** Run `printman share` and your printer appears as `Printman - <printer>` in the **native print dialog** of iPhones, iPads, Android phones, Windows, macOS and Linux, with nothing to install on the device and no cloud account required.
 - **Phone-Ready Web UI:** Run `printman serve` to launch a mobile web page. Anyone on your home Wi-Fi can open it and print from their phone.
-- **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers (assuming the printer driver is installed).
+- **Zero Extra Installs:** Built entirely on the .NET runtime and the operating system's own printing: Windows printing APIs on Windows, CUPS on Linux, macOS and Raspberry Pi OS. No third-party packages or bloated drivers (assuming the printer itself is installed).
 - **Prints Common Formats:** Handles PDF documents, images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
-- **Live Spooler & Hardware Diagnostics:** Interrogates the native Windows Spooler and hardware status flags in real time (Paper Jam, Out of Paper, Offline, Door Open, Busy, Paused).
+- **Live Spooler & Hardware Diagnostics:** Interrogates the native print queue (Windows Spooler or CUPS) and hardware status flags in real time (Paper Jam, Out of Paper, Offline, Door Open, Busy, Paused).
 - **Duplicate Prevention & Queue Control:** Proactively warns before submitting duplicate print jobs when jobs are pending/stuck; allows canceling individual jobs or purging all jobs in one click.
 - **Two CLI Modes:** Pass command-line flags to print immediately, or run `printman` with no arguments to use a guided interactive terminal wizard.
 - **Smart Printer Search:** Type partial printer names. For example, `HP Laser` automatically finds `HP LaserJet Professional P1102`.
@@ -114,13 +114,21 @@ printman.exe share --all                # share every installed printer
 
 ## 📥 Download
 
-Pre-built Windows binaries are available on [**GitHub Releases**](https://github.com/EslaMx7/printman/releases/latest):
+Pre-built binaries are available on [**GitHub Releases**](https://github.com/EslaMx7/printman/releases/latest):
 
 | Package | Details |
 | :--- | :--- |
-| [**Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | Single executable (~60 MB), (no .NET required) |
-| [**Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~6 MB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
-> **Quick Start:** Extract the ZIP file and run `printman.exe` directly or from Windows Terminal.
+| [**Windows Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | `win-x64`: single executable (~60 MB), (no .NET required) |
+| [**Windows Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~6 MB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
+| [**Linux tar.gz**](https://github.com/EslaMx7/printman/releases/latest) | `linux-x64`, `linux-arm64` (Raspberry Pi 3/4/5 with 64-bit OS), `linux-arm` (Raspberry Pi 2/3/4 with 32-bit OS): single executable, no .NET required |
+| [**macOS tar.gz**](https://github.com/EslaMx7/printman/releases/latest) | `osx-arm64` (Apple Silicon), `osx-x64` (Intel): single executable, no .NET required |
+> **Quick Start (Windows):** Extract the ZIP file and run `printman.exe` directly or from Windows Terminal.
+>
+> **Quick Start (Linux / Raspberry Pi):** Printman prints through CUPS. Install it and add your printer once (`sudo apt install cups`, then add the printer in your desktop's printer settings or at `http://localhost:631`), then extract and run `./printman`.
+>
+> **Quick Start (macOS):** Add your printer in System Settings, extract the archive and run `./printman` from Terminal. If macOS blocks it, run `xattr -d com.apple.quarantine ./printman` once.
+>
+> The examples below use `printman.exe`; on Linux and macOS run `./printman` (or put it on your `PATH`). Pi Zero, Zero W and Pi 1 (ARMv6) are not supported by .NET.
 
 ---
 
@@ -186,7 +194,7 @@ Pre-built Windows binaries are available on [**GitHub Releases**](https://github
 
 ### 1. Print from Your Phone (`serve`)
 
-Start the local web server on your Windows PC:
+Start the local web server on the computer your printer is connected to:
 
 ```powershell
 # Start with an auto-generated 6-digit PIN
@@ -221,7 +229,7 @@ Your console displays a local link with your PIN:
 - **Automatic Upload Clearing:** Clears sent files from the selection immediately upon submission so users never accidentally tap "Print" twice.
 - **Emergency Queue Purge:** Prominent `Purge All Jobs` button to flush a jammed spooler queue instantly.
 - **Hardware Diagnostics:** Displays real-time printer status badges (Online, Paper Jam, Out of Paper, Offline, Paused).
-- **Serialized Print Pipeline:** Sends jobs one-by-one so Windows GDI+/spooler race conditions never occur.
+- **Serialized Print Pipeline:** Sends jobs one-by-one so GDI+/spooler (or CUPS) race conditions never occur.
 - **Automatic Storage Cleanup:** Fast SHA-256 caching with automatic LRU cleanup for old uploads.
 
 ### 2. Share as a Network Printer (`share`)
@@ -252,12 +260,12 @@ printman.exe share --web
 - **Windows:** Settings → Bluetooth & devices → Printers & scanners → Add device.
 - **Linux / ChromeOS:** appears automatically as a driverless (IPP Everywhere) printer.
 
-How it works: printman runs an IPP Everywhere / AirPrint print server on port `631` and announces it with mDNS / DNS-SD (Bonjour). Received jobs (PDF, JPEG, PNG, PWG Raster, Apple URF) go through the same serialized queue as the web UI, so they appear in the live queue too.
+How it works: printman runs an IPP Everywhere / AirPrint print server on port `631` (`8631` on Linux and macOS, where CUPS already uses 631) and announces it with mDNS / DNS-SD (Bonjour). Received jobs (PDF, JPEG, PNG, PWG Raster, Apple URF) go through the same serialized queue as the web UI, so they appear in the live queue too.
 
 > [!IMPORTANT]
 > Native print dialogs cannot type a PIN, so **anyone on your local network can print to shared printers** (just like a normal Wi-Fi printer). The PIN only protects the web UI (`serve` / `share --web`). Requests from non-private IP addresses are rejected.
 
-**Firewall:** the first time you share, Windows asks (with a UAC prompt) whether to allow printman on the network - approve it on a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup.
+**Firewall:** the first time you share, Windows asks (with a UAC prompt) whether to allow printman on the network - approve it on a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup. On Linux with a firewall enabled, open the IPP port and mDNS (e.g. `sudo ufw allow 8631/tcp && sudo ufw allow 5353/udp`, plus `5000/tcp` for the web UI); printman shares UDP 5353 with Avahi / Bonjour.
 
 ### 3. Quick Terminal Printing
 
@@ -287,7 +295,7 @@ printman.exe list
 # Show supported paper sizes and hardware details for a printer
 printman.exe info "HP LaserJet"
 
-# View the real-time Windows Print Spooler queue
+# View the real-time print queue (Windows Print Spooler or CUPS)
 printman.exe queue
 
 # Continuous live watcher dashboard for a specific printer
@@ -369,11 +377,11 @@ A small menu (↑/↓ and Enter, or press the number) lets you choose what to st
 ### Network Printer Flags (`share`)
 | Option | Description | Default |
 | :--- | :--- | :--- |
-| `[printer ...]` | Printers to share (partial names work) | Windows default printer |
+| `[printer ...]` | Printers to share (partial names work) | System default printer |
 | `--select` | Choose the printers to share from an interactive checklist (named printers start ticked) | Off |
 | `--all` | Share every installed printer | Off |
 | `--web`, `--ui` | Also start the web UI (accepts the `serve` flags above) | Off |
-| `--ipp-port` | Port for network printing (IPP) | `631` |
+| `--ipp-port` | Port for network printing (IPP) | `631` (Windows), `8631` (Linux / macOS) |
 | `--no-mdns` | Do not announce shared printers; devices add them by URL | Announce on |
 | `--ip`, `--bind` | Network binding address | `0.0.0.0` |
 
@@ -384,8 +392,10 @@ A small menu (↑/↓ and Enter, or press the number) lets you choose what to st
 ## 🔨 How to Build
 
 ### Requirements
-- Windows 10 or Windows 11
 - .NET 10 SDK
+- To run: Windows 10 or 11, or Linux / macOS / Raspberry Pi OS with CUPS (the standard print system there)
+
+The project builds for the platform you target: a Windows build (`win-*` runtime, or a plain `dotnet build` on Windows) uses the Windows printing APIs and WinRT PDF engine; any other runtime builds the CUPS version. Both can be built from any OS.
 
 ### Development Build
 ```powershell
@@ -402,13 +412,19 @@ dotnet run --project src/Printman -- list
 ### Publishing Releases
 
 #### Option A: Standalone Single Executable (Recommended)
-Bundles the .NET runtime into a single executable. Runs on any Windows 10/11 computer without installing .NET:
+Bundles the .NET runtime into a single executable. Runs without installing .NET:
 ```powershell
 dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish/standalone
+
+# Linux / Raspberry Pi / macOS
+dotnet publish src/Printman/Printman.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./publish/linux-x64
+dotnet publish src/Printman/Printman.csproj -c Release -r linux-arm64 --self-contained true -p:PublishSingleFile=true -o ./publish/linux-arm64
+dotnet publish src/Printman/Printman.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -o ./publish/osx-arm64
 ```
+> macOS executables must be published on a Mac so the SDK can sign them (Apple Silicon refuses to run unsigned binaries).
 
 #### Option B: Framework-Dependent (Lightweight)
-Creates a smaller binary package. Requires the target computer to have the .NET 10 Desktop Runtime installed:
+Creates a smaller binary package. Requires the target computer to have the .NET 10 runtime installed (the Desktop Runtime on Windows):
 ```powershell
 dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false -o ./publish/portable
 ```

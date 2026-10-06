@@ -4,7 +4,7 @@ using Printman.Core.Abstractions;
 namespace Printman.Tests.Fakes;
 
 /// <summary>No-op renderer that supports a configurable set of extensions.</summary>
-public sealed class FakeDocumentRenderer(params string[] extensions) : IDocumentRenderer
+public sealed class FakeDocumentRenderer(params string[] extensions) : IGdiDocumentRenderer
 {
     public string[] Extensions { get; } = extensions;
     public int PageCount { get; set; } = 1;

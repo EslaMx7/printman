@@ -63,7 +63,7 @@ public class SharedPrinterRegistry(
 
             shared.Add(new SharedPrinter
             {
-                WindowsName = info.Name,
+                SystemName = info.Name,
                 Slug = candidate,
                 // DNS-SD instance names are limited to 63 UTF-8 bytes
                 DisplayName = SharedPrinter.TruncateUtf8($"Printman - {info.Name}", 63),
@@ -94,7 +94,7 @@ public class SharedPrinterRegistry(
     {
         lock (_sync)
         {
-            if (_capabilities.TryGetValue(printer.WindowsName, out var cached) && DateTime.UtcNow - cached.At < CapabilitiesTtl)
+            if (_capabilities.TryGetValue(printer.SystemName, out var cached) && DateTime.UtcNow - cached.At < CapabilitiesTtl)
             {
                 return cached.Info;
             }
@@ -104,18 +104,18 @@ public class SharedPrinterRegistry(
         try
         {
             info = _printerDiscovery.GetPrinters()
-                .FirstOrDefault(p => string.Equals(p.Name, printer.WindowsName, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(p => string.Equals(p.Name, printer.SystemName, StringComparison.OrdinalIgnoreCase));
         }
         catch { }
 
         lock (_sync)
         {
             // Keep the last known capabilities if the printer is temporarily unavailable
-            if (info == null && _capabilities.TryGetValue(printer.WindowsName, out var previous))
+            if (info == null && _capabilities.TryGetValue(printer.SystemName, out var previous))
             {
                 info = previous.Info;
             }
-            _capabilities[printer.WindowsName] = (info, DateTime.UtcNow);
+            _capabilities[printer.SystemName] = (info, DateTime.UtcNow);
         }
         return info;
     }
@@ -124,7 +124,7 @@ public class SharedPrinterRegistry(
     {
         lock (_sync)
         {
-            if (_status.TryGetValue(printer.WindowsName, out var cached) && DateTime.UtcNow - cached.At < StatusTtl)
+            if (_status.TryGetValue(printer.SystemName, out var cached) && DateTime.UtcNow - cached.At < StatusTtl)
             {
                 return cached.Status;
             }
@@ -133,13 +133,13 @@ public class SharedPrinterRegistry(
         PrinterStatusInfo? status = null;
         try
         {
-            status = _queueService.GetPrinterStatus(printer.WindowsName);
+            status = _queueService.GetPrinterStatus(printer.SystemName);
         }
         catch { }
 
         lock (_sync)
         {
-            _status[printer.WindowsName] = (status, DateTime.UtcNow);
+            _status[printer.SystemName] = (status, DateTime.UtcNow);
         }
         return status;
     }

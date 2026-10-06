@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Printman! This document provides 
 
 ### Prerequisites
 
-- **Operating System:** Windows 10 (version 19041.0 or later) or Windows 11
+- **Operating System:** Windows 10 (version 19041.0 or later) or Windows 11 for the Windows build; Linux or macOS with CUPS for the CUPS build (either build can be compiled from any OS with `-r <runtime>`)
 - **.NET SDK:** [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
 - **IDE (optional):** Visual Studio 2022 17.10+, Visual Studio Code with C# Dev Kit, or JetBrains Rider
 
@@ -64,7 +64,16 @@ dotnet test Printman.slnx --coverage --coverage-output-format cobertura --covera
 dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false -o ./publish
 ```
 
-This produces `printman.exe` in the `./publish` directory, ready for deployment.
+This produces `printman.exe` in the `./publish` directory, ready for deployment. Use `-r linux-x64`, `linux-arm64`, `linux-arm`, `osx-arm64` or `osx-x64` for the CUPS build.
+
+### Platform-Specific Code
+
+`Printman.csproj` picks the target framework from the runtime: `net10.0-windows` for `win-*` (or a plain build on Windows), `net10.0` otherwise. Platform code is excluded by naming convention:
+
+- `*.Windows.cs` and `Services/Windows/`: Windows only (GDI+, WinRT, winspool). `#if WINDOWS` is available for the rare inline case (only `Program.ConfigureServices` uses it).
+- `*.Unix.cs` and `Services/Cups/`: Linux / macOS only (CUPS over IPP, `cupsfilter`).
+
+Build both before opening a pull request: `dotnet build` and `dotnet build src/Printman -r linux-x64`.
 
 ## Code Style Guidelines
 
@@ -73,8 +82,8 @@ This produces `printman.exe` in the `./publish` directory, ready for deployment.
 Printman adheres strictly to SOLID principles. When contributing code, ensure your changes respect:
 
 - **Single Responsibility (SRP):** Each class should have one reason to change. Keep discovery, rendering, validation, and spooling logic in separate classes.
-- **Open/Closed (OCP):** New document formats should be added by implementing `IDocumentRenderer` and registering in `Program.ConfigureServices` — do not modify `WindowsPrintService`.
-- **Liskov Substitution (LSP):** All renderers must support synchronous drawing onto the supplied `Graphics` surface while respecting the target `printableArea`, DPI, and aspect ratio.
+- **Open/Closed (OCP):** New document formats should be added by implementing `IDocumentRenderer` (plus `IGdiDocumentRenderer` in a `*.Windows.cs` part for drawing on Windows) and registering in `Program.ConfigureServices` — do not modify `WindowsPrintService` or `CupsPrintService`.
+- **Liskov Substitution (LSP):** On Windows, all renderers must support synchronous drawing onto the supplied `Graphics` surface while respecting the target `printableArea`, DPI, and aspect ratio. On Linux / macOS a format must be one CUPS can convert.
 - **Interface Segregation (ISP):** Keep interfaces fine-grained in `Core/Abstractions/`.
 - **Dependency Inversion (DIP):** Presentation and web servers must depend exclusively on abstractions injected via `IServiceProvider`.
 
@@ -85,7 +94,7 @@ Printman adheres strictly to SOLID principles. When contributing code, ensure yo
 - **File-scoped namespaces:** Use file-scoped namespace declarations (e.g., `namespace Printman.Core;`).
 - **XML documentation:** All public types and members must have XML documentation comments.
 - **Async methods:** Use `async`/`await` with `CancellationToken` where applicable. Follow the `Async` suffix convention for async method names.
-- **Zero third-party dependencies (shipped code):** Do not add NuGet packages to `src/Printman`. Use only the .NET BCL, Windows SDK / WinRT, and framework references (`Microsoft.AspNetCore.App`, `Microsoft.WindowsDesktop.App`). The test project may reference Microsoft-owned test packages (MSTest / Microsoft.Testing.Platform); they never reach the published binary.
+- **Zero third-party dependencies (shipped code):** Do not add NuGet packages to `src/Printman`. Use only the .NET BCL, framework references (`Microsoft.AspNetCore.App`, `Microsoft.WindowsDesktop.App`), Windows SDK / WinRT on Windows, and the system's CUPS service and command-line tools on Linux / macOS. The test project may reference Microsoft-owned test packages (MSTest / Microsoft.Testing.Platform); they never reach the published binary.
 
 ## Pull Request Process
 
@@ -161,9 +170,11 @@ printman/
 │   ├── Core/Abstractions/       # Fine-grained interfaces
 │   ├── Core/Models/             # Pure data structures / DTOs
 │   ├── Services/                # Print / discovery / cache implementations
+│   │   ├── Windows/             # Windows spooler, GDI+ printing, firewall check (Windows build only)
+│   │   ├── Cups/                # CUPS discovery, printing, queue (Linux / macOS build only)
 │   │   ├── Ipp/                 # IPP Everywhere codec, handler, attributes
 │   │   ├── Discovery/           # mDNS responder, DNS wire codec, firewall check
-│   │   └── Renderers/           # PDF / Image / Text / PWG / URF renderers
+│   │   └── Renderers/           # PDF / Image / Text / PWG / URF; *.Windows.cs draw, *.Unix.cs count pages
 │   ├── Server/                  # Embedded Kestrel LAN web server + IPP endpoints
 │   ├── CLI/                     # Command-line parser & subcommand dispatcher
 │   ├── Interactive/             # Launcher menu, wizard, printer picker

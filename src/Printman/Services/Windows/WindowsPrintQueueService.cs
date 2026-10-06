@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using Printman.Core.Abstractions;
 using Printman.Core.Models;
@@ -8,20 +7,7 @@ namespace Printman.Services;
 public class WindowsPrintQueueService(IPrinterDiscoveryService printerDiscovery) : IPrintQueueService
 {
     private readonly IPrinterDiscoveryService _printerDiscovery = printerDiscovery;
-    private readonly ConcurrentDictionary<string, PipelineJobEntry> _pipelineJobs = new(StringComparer.OrdinalIgnoreCase);
-
-    private sealed record PipelineJobEntry(
-        string PipelineId,
-        string PrinterName,
-        string DocumentName,
-        int TotalPages,
-        DateTime SubmittedAt,
-        CancellationTokenSource Cts)
-    {
-        public int PagesPrinted { get; set; }
-        public PrintJobStatusCode StatusCode { get; set; } = PrintJobStatusCode.Spooling;
-        public string StatusDescription { get; set; } = "Spooling / Rendering";
-    }
+    private readonly PipelineJobTracker _pipelineJobs = new();
 
     #region Win32 P/Invoke Declarations
 
@@ -183,32 +169,8 @@ public class WindowsPrintQueueService(IPrinterDiscoveryService printerDiscovery)
 
     public IReadOnlyList<PrintJobInfo> GetJobs(string? printerName = null)
     {
-        var result = new List<PrintJobInfo>();
-
         // 1. Include active Printman pipeline jobs (rendering / pre-spooling)
-        foreach (var entry in _pipelineJobs.Values)
-        {
-            if (string.IsNullOrWhiteSpace(printerName) ||
-                string.Equals(entry.PrinterName, printerName, StringComparison.OrdinalIgnoreCase))
-            {
-                result.Add(new PrintJobInfo
-                {
-                    JobId = -Math.Abs(entry.PipelineId.GetHashCode()),
-                    PipelineJobId = entry.PipelineId,
-                    PrinterName = entry.PrinterName,
-                    DocumentName = entry.DocumentName,
-                    UserName = Environment.UserName,
-                    TotalPages = entry.TotalPages,
-                    PagesPrinted = entry.PagesPrinted,
-                    SizeBytes = 0,
-                    SubmittedAt = entry.SubmittedAt,
-                    StatusCode = entry.StatusCode,
-                    StatusDescription = entry.StatusDescription,
-                    IsPrintmanPipelineJob = true,
-                    CanCancel = true
-                });
-            }
-        }
+        var result = _pipelineJobs.Snapshot(printerName).ToList();
 
         // 2. Query native Windows Spooler jobs
         var targetPrinters = new List<string>();
@@ -453,13 +415,7 @@ public class WindowsPrintQueueService(IPrinterDiscoveryService printerDiscovery)
         string targetName = resolved?.Name ?? printerName;
 
         // Also cancel pipeline jobs for this printer
-        foreach (var entry in _pipelineJobs.Values)
-        {
-            if (string.Equals(entry.PrinterName, targetName, StringComparison.OrdinalIgnoreCase))
-            {
-                CancelPipelineJob(entry.PipelineId);
-            }
-        }
+        _pipelineJobs.CancelAllForPrinter(targetName);
 
         if (!OpenPrinter(targetName, out var hPrinter, IntPtr.Zero))
         {
@@ -506,50 +462,15 @@ public class WindowsPrintQueueService(IPrinterDiscoveryService printerDiscovery)
         }
     }
 
-    public void RegisterPipelineJob(string pipelineJobId, string printerName, string documentName, int totalPages, CancellationTokenSource cts)
-    {
-        _pipelineJobs[pipelineJobId] = new PipelineJobEntry(
-            pipelineJobId,
-            printerName,
-            documentName,
-            totalPages,
-            DateTime.Now,
-            cts);
-    }
+    public void RegisterPipelineJob(string pipelineJobId, string printerName, string documentName, int totalPages, CancellationTokenSource cts) =>
+        _pipelineJobs.Register(pipelineJobId, printerName, documentName, totalPages, cts);
 
-    public void UpdatePipelineJob(string pipelineJobId, int pagesPrinted, PrintJobStatusCode status, string description)
-    {
-        if (_pipelineJobs.TryGetValue(pipelineJobId, out var entry))
-        {
-            entry.PagesPrinted = pagesPrinted;
-            entry.StatusCode = status;
-            entry.StatusDescription = description;
-        }
-    }
+    public void UpdatePipelineJob(string pipelineJobId, int pagesPrinted, PrintJobStatusCode status, string description) =>
+        _pipelineJobs.Update(pipelineJobId, pagesPrinted, status, description);
 
-    public void UnregisterPipelineJob(string pipelineJobId)
-    {
-        _pipelineJobs.TryRemove(pipelineJobId, out _);
-    }
+    public void UnregisterPipelineJob(string pipelineJobId) => _pipelineJobs.Unregister(pipelineJobId);
 
-    public bool CancelPipelineJob(string pipelineJobId)
-    {
-        if (_pipelineJobs.TryGetValue(pipelineJobId, out var entry))
-        {
-            try
-            {
-                entry.Cts.Cancel();
-                entry.StatusCode = PrintJobStatusCode.Deleting;
-                entry.StatusDescription = "Cancellation requested...";
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-        return false;
-    }
+    public bool CancelPipelineJob(string pipelineJobId) => _pipelineJobs.Cancel(pipelineJobId);
 
     public bool CancelJob(string? printerName, string jobIdOrPipelineId)
     {
@@ -563,12 +484,9 @@ public class WindowsPrintQueueService(IPrinterDiscoveryService printerDiscovery)
         if (int.TryParse(jobIdOrPipelineId, out int jobId))
         {
             // If negative, it was a hashed pipeline job ID
-            foreach (var entry in _pipelineJobs.Values)
+            if (jobId < 0)
             {
-                if (-Math.Abs(entry.PipelineId.GetHashCode()) == jobId)
-                {
-                    return CancelPipelineJob(entry.PipelineId);
-                }
+                return _pipelineJobs.CancelByNumericId(jobId);
             }
 
             if (!string.IsNullOrWhiteSpace(printerName))

@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     steps:
@@ -94,3 +94,59 @@ jobs:
         with:
           name: publish
           path: ./publish
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build (Raspberry Pi / ARM)
+        run: |
+          dotnet build src/Printman/Printman.csproj --configuration Release -r linux-arm64
+          dotnet build src/Printman/Printman.csproj --configuration Release -r linux-arm
+
+      - name: Publish (x64)
+        run: dotnet publish src/Printman/Printman.csproj --configuration Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+
+      - name: Install CUPS with a virtual PDF printer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cups cups-client cups-filters cups-pdf poppler-utils
+          sudo systemctl start cups
+          sudo lpadmin -p PDF -E -v cups-pdf:/ -P /usr/share/ppd/cups-pdf/CUPS-PDF_opt.ppd
+          lpstat -p
+
+      - name: Smoke test against CUPS (no paper)
+        run: |
+          ./publish/printman list
+          ./publish/printman info PDF
+          ./publish/printman tests/fixtures/test_sample.pdf -printer PDF -pages 1:2 -output out/test.pdf
+          ./publish/printman tests/fixtures/sample.txt -printer PDF -output out/text.pdf
+          test "$(pdfinfo out/test.pdf | awk '/^Pages:/ {print $2}')" = "2"
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: |
+          dotnet build src/Printman/Printman.csproj --configuration Release -r osx-arm64
+          dotnet build src/Printman/Printman.csproj --configuration Release -r osx-x64
+
+      - name: Smoke test
+        run: dotnet run --project src/Printman --configuration Release -r osx-arm64 -- list

@@ -21,8 +21,8 @@ public sealed class IppPrinterAttributeBuilderTests
         IppJobStore? jobs = null) =>
         new(registry, jobs ?? new IppJobStore(), formats ?? Formats(".pdf"), settings ?? new IppServerSettings());
 
-    private static SharedPrinter Printer(string windowsName = "Fake Printer") =>
-        IppTestMessages.Printer("fake-printer", windowsName);
+    private static SharedPrinter Printer(string systemName = "Fake Printer") =>
+        IppTestMessages.Printer("fake-printer", systemName);
 
     private static IppAttributeGroup Build(
         FakeSharedPrinterRegistry registry,
@@ -93,7 +93,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Capabilities[printer.WindowsName] = TestData.Printer();
+        registry.Capabilities[printer.SystemName] = TestData.Printer();
 
         var g = Build(registry, printer: printer);
 
@@ -105,7 +105,7 @@ public sealed class IppPrinterAttributeBuilderTests
         Assert.AreEqual(printer.DisplayName, g.Get("printer-dns-sd-name")!.First!.AsString());
         Assert.AreEqual(printer.DisplayName, g.Get("printer-info")!.First!.AsString());
         Assert.AreEqual(Environment.MachineName, g.Get("printer-location")!.First!.AsString());
-        Assert.AreEqual($"Printman {printer.WindowsName}", g.Get("printer-make-and-model")!.First!.AsString());
+        Assert.AreEqual($"Printman {printer.SystemName}", g.Get("printer-make-and-model")!.First!.AsString());
         Assert.AreEqual(WebUri, g.Get("printer-more-info")!.First!.AsString());
         Assert.AreEqual($"urn:uuid:{printer.Uuid}", g.Get("printer-uuid")!.First!.AsString());
         CollectionAssert.AreEqual(new[] { "document", "photo" }, Strings(g, "printer-kind"));
@@ -150,7 +150,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Capabilities[printer.WindowsName] = TestData.Printer(canDuplex: true);
+        registry.Capabilities[printer.SystemName] = TestData.Printer(canDuplex: true);
 
         var g = Build(registry, formats: Formats(".pdf", ".urf"), printer: printer);
 
@@ -226,7 +226,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Capabilities[printer.WindowsName] = TestData.Printer(supportsColor: color, canDuplex: duplex);
+        registry.Capabilities[printer.SystemName] = TestData.Printer(supportsColor: color, canDuplex: duplex);
 
         var g = Build(registry, printer: printer);
 
@@ -330,7 +330,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Statuses[printer.WindowsName] = Status(jam, outOfPaper, door, paused, online, hasError);
+        registry.Statuses[printer.SystemName] = Status(jam, outOfPaper, door, paused, online, hasError);
 
         var g = Build(registry, printer: printer);
 
@@ -343,7 +343,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Statuses[printer.WindowsName] = Status(jam: true, online: false);
+        registry.Statuses[printer.SystemName] = Status(jam: true, online: false);
 
         var g = Build(registry, printer: printer);
 
@@ -357,7 +357,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Statuses[printer.WindowsName] = Status(jam: true, hasError: true);
+        registry.Statuses[printer.SystemName] = Status(jam: true, hasError: true);
 
         var g = Build(registry, printer: printer);
 
@@ -370,7 +370,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Statuses[printer.WindowsName] = Status(text: "Warming up");
+        registry.Statuses[printer.SystemName] = Status(text: "Warming up");
 
         var g = Build(registry, printer: printer);
 
@@ -382,7 +382,7 @@ public sealed class IppPrinterAttributeBuilderTests
     {
         var printer = Printer();
         var registry = new FakeSharedPrinterRegistry();
-        registry.Capabilities[printer.WindowsName] =
+        registry.Capabilities[printer.SystemName] =
             TestData.Printer(paperSizes: [TestData.A4, TestData.Letter]);
 
         var g = Build(registry, printer: printer);

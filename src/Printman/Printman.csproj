@@ -1,20 +1,48 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    One project, two platform flavours:
+      * Windows (win-* RID, or a plain build on a Windows host): net10.0-windows with GDI+ / WinRT / winspool.
+      * Linux / macOS (any other RID, or a plain build on a Unix host): net10.0 talking to CUPS.
+    Platform-specific sources follow the *.Windows.cs / *.Unix.cs suffix convention, plus the
+    Services/Windows/ and Services/Cups/ folders.
+  -->
+  <PropertyGroup>
+    <PrintmanWindows Condition="'$(RuntimeIdentifier)' != ''">$([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))</PrintmanWindows>
+    <PrintmanWindows Condition="'$(RuntimeIdentifier)' == ''">$([MSBuild]::IsOSPlatform('Windows'))</PrintmanWindows>
+  </PropertyGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <AssemblyName>printman</AssemblyName>
+    <RootNamespace>Printman</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(PrintmanWindows)' == 'true'">
     <TargetFramework>net10.0-windows</TargetFramework>
     <TargetPlatformIdentifier>Windows</TargetPlatformIdentifier>
     <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <AssemblyName>printman</AssemblyName>
-    <RootNamespace>Printman</RootNamespace>
-    <ApplicationIcon>app.ico</ApplicationIcon>
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <UseWindowsForms>true</UseWindowsForms>
-    <LangVersion>latest</LangVersion>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(PrintmanWindows)' != 'true'">
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifiers>linux-x64;linux-arm64;linux-arm;osx-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(PrintmanWindows)' == 'true'">
+    <Compile Remove="**\*.Unix.cs;Services\Cups\**" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(PrintmanWindows)' != 'true'">
+    <Compile Remove="**\*.Windows.cs;Services\Windows\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

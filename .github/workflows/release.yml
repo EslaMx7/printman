@@ -11,6 +11,9 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.semver.outputs.VERSION }}
+      tag: ${{ steps.semver.outputs.TAG }}
 
     steps:
       - name: Checkout repository
@@ -172,6 +175,10 @@ jobs:
             Fully self-contained single executable. Includes the .NET runtime. Runs out of the box on Windows 10/11 with zero installation required.
           - **``printman-v$ver-win-x64-framework-dependent.zip``** (Lightweight):
             Smaller download for users and developers who already have the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) installed.
+          - **``printman-v$ver-linux-x64.tar.gz``**, **``linux-arm64``** (Raspberry Pi 3/4/5, 64-bit OS), **``linux-arm``** (Raspberry Pi 2/3/4, 32-bit OS):
+            Self-contained single executable. Prints through CUPS (``sudo apt install cups``).
+          - **``printman-v$ver-osx-arm64.tar.gz``** (Apple Silicon), **``osx-x64``** (Intel Mac):
+            Self-contained single executable using the built-in macOS printing system (CUPS).
           "@
 
           gh release create $tag `
@@ -180,3 +187,42 @@ jobs:
             --title "Printman $tag" `
             --notes $releaseNotes `
             --generate-notes
+
+  # Linux / macOS builds are attached to the release created above. macOS archives are built on macOS so the
+  # SDK can ad-hoc sign the executable (Apple Silicon refuses to run unsigned binaries).
+  unix:
+    needs: release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rids: linux-x64 linux-arm64 linux-arm
+          - os: macos-latest
+            rids: osx-arm64 osx-x64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish and upload
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          for rid in ${{ matrix.rids }}; do
+            out="./dist/$rid"
+            dotnet publish src/Printman/Printman.csproj -c Release -r "$rid" --self-contained true \
+              -p:PublishSingleFile=true -p:Version="$VERSION" -o "$out"
+            rm -f "$out"/*.pdb
+            chmod +x "$out/printman"
+            cp README.md LICENSE "$out/"
+            tar -czf "printman-v$VERSION-$rid.tar.gz" -C "$out" .
+            gh release upload "$TAG" "printman-v$VERSION-$rid.tar.gz" --clobber
+          done

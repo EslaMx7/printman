@@ -407,16 +407,16 @@ public sealed class ModelDtoTests
     }
 
     [TestMethod]
-    public void PaperSizeOption_FromDrawing_CopiesProperties()
+    public void PaperSizeOption_Keyword_DefaultsToNullAndCanBeSet()
     {
-        var drawingSize = new PaperSize("A4", 827, 1169) { RawKind = 9 };
+        var windows = new PaperSizeOption("A4", 9, 827, 1169);
+        var cups = windows with { Keyword = "iso_a4_210x297mm" };
 
-        var option = PaperSizeOption.FromDrawing(drawingSize);
-
-        Assert.AreEqual("A4", option.Name);
-        Assert.AreEqual(9, option.RawKind);
-        Assert.AreEqual(827, option.WidthHundredthsInch);
-        Assert.AreEqual(1169, option.HeightHundredthsInch);
+        Assert.IsNull(windows.Keyword);
+        Assert.AreEqual("iso_a4_210x297mm", cups.Keyword);
+        Assert.AreEqual(9, cups.RawKind);
+        Assert.AreEqual(827, cups.WidthHundredthsInch);
+        Assert.AreEqual(1169, cups.HeightHundredthsInch);
     }
 
     // ---------------------------------------------------------------------

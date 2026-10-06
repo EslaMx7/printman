@@ -37,7 +37,11 @@ public class WindowsPrintService(
         }
 
         // 3. Resolve renderer and pages
-        var renderer = _rendererResolver.Resolve(request.FilePath);
+        if (_rendererResolver.Resolve(request.FilePath) is not IGdiDocumentRenderer renderer)
+        {
+            return PrintJobResult.Failed(printer.Name, $"No page renderer is available for '{Path.GetExtension(request.FilePath)}' files.");
+        }
+
         int totalPages = await renderer.GetPageCountAsync(request.FilePath);
         var pagesToPrint = request.PageRange.ResolvePages(totalPages);
 
