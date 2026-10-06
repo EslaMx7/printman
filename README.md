@@ -7,7 +7,7 @@
 [![Download](https://img.shields.io/badge/Download-Latest%20Release-0078D6?logo=windows)](https://github.com/EslaMx7/printman/releases/latest)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/eslamx7)
 
-Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency Windows tool that turns any USB printer into a **native network printer** - it appears in the print dialog of iPhone, iPad, Android, Windows, macOS and Linux, with **no app, no drivers and no cloud**.
+Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency Windows tool that turns any USB printer into a **native network printer** - it appears in the print dialog of iPhone, iPad, Android, Windows, macOS and Linux, and works without installing an app, a driver or a cloud account.
 
 ---
 
@@ -19,7 +19,7 @@ Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency Windo
 ./printman share
 ```
 
-Then open the print dialog on any device on the same Wi-Fi and pick **`Printman - <your printer>`**. No app, no drivers, no web page - it just appears like a normal network printer.
+Then open the print dialog on any device on the same Wi-Fi and pick **`Printman - <your printer>`**. It simply appears like a normal network printer, with nothing to install.
 
 **Prefer printing from a browser instead?** Run `./printman serve` and open the link it shows on your phone.
 
@@ -54,7 +54,7 @@ printman.exe share --all                # share every installed printer
 
 **Why it is different**
 
-- **No app, no drivers, no accounts, no cloud.** Standard protocols only (IPP Everywhere + mDNS / Bonjour), running locally on your PC.
+- **Nothing to install, and nothing leaves your network.** Printman uses the same IPP Everywhere and mDNS (Bonjour) standards as a Wi-Fi printer, so devices need no app or driver and no cloud account is involved.
 - **One command.** No configuration on the PC, nothing to install on the phones.
 - **Zero dependencies.** Pure .NET + native Windows APIs - the same binary also handles PDF, JPEG/PNG, PWG Raster and Apple URF jobs.
 - **One queue.** Network jobs appear in the same live spooler dashboard as web uploads (and can be cancelled there).
@@ -94,13 +94,13 @@ printman.exe share --all                # share every installed printer
 * **The Solution:**  
   Modern Wi-Fi printers are often fragile, expensive, and dependent on cloud accounts. Instead of replacing functional hardware, I built **Printman**.  
   Printman turns the host Windows machine into a lightweight, zero-dependency print server. With `printman share`, our 12-year-old USB printer now appears as a normal Wi-Fi printer in every phone and laptop's print dialog; `printman serve` adds a phone-friendly web UI.  
-  Now, my wife prints assignments from her phone and my kids print their homework from their iPad directly - no app, no cloud, no new hardware.
+  Now, my wife prints assignments from her phone and my kids print their homework from their iPad directly, without installing anything on their devices or replacing the printer.
 
 ---
 
 ## 🌟 What It Does
 
-- **⭐ Real Network Printer (AirPrint / Mopria / IPP Everywhere):** Run `printman share` and your printer appears as `Printman - <printer>` in the **native print dialog** of iPhones, iPads, Android phones, Windows, macOS and Linux. No app, no web page, no drivers, no cloud.
+- **⭐ Real Network Printer (AirPrint / Mopria / IPP Everywhere):** Run `printman share` and your printer appears as `Printman - <printer>` in the **native print dialog** of iPhones, iPads, Android phones, Windows, macOS and Linux, with nothing to install on the device and no cloud account required.
 - **Phone-Ready Web UI:** Run `printman serve` to launch a mobile web page. Anyone on your home Wi-Fi can open it and print from their phone.
 - **Zero Extra Installs:** Built entirely on standard Windows APIs and the .NET runtime. No third-party packages or bloated drivers (assuming the printer driver is installed).
 - **Prints Common Formats:** Handles PDF documents, images (`.png`, `.jpg`, `.bmp`), and plain text or code files (`.txt`, `.csv`, `.md`, `.json`).
@@ -245,7 +245,7 @@ printman.exe share --all
 printman.exe share --web
 ```
 
-`share` runs on its own: no web page, no PIN, and no web port is opened. Add `--web` (or use `serve --share`) when you want both.
+`share` runs on its own, without starting the web page, the PIN or the web port. Add `--web` (or use `serve --share`) when you want both.
 
 - **iPhone / iPad / Mac:** Share → Print → pick `Printman - HP LaserJet ...` (AirPrint).
 - **Android:** Print → select the printer (Default Print Service / Mopria).
