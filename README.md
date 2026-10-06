@@ -9,6 +9,8 @@
 
 Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency Windows tool that turns any USB printer into a **native network printer** - it appears in the print dialog of iPhone, iPad, Android, Windows, macOS and Linux, and works without installing an app, a driver or a cloud account.
 
+🌐 **Website:** [printman.eslamx.com](https://printman.eslamx.com) · 📖 **Setup guide:** [AirPrint / Mopria sharing guide](https://printman.eslamx.com/guides/share-usb-printer-airprint-mopria-windows) · 📝 **Changelog:** [printman.eslamx.com/changelog](https://printman.eslamx.com/changelog)
+
 ---
 
 ## ⚡ TL;DR
@@ -51,6 +53,8 @@ printman.exe share --all                # share every installed printer
 | **Windows 10 / 11** | Settings -> Bluetooth & devices -> Printers & scanners -> Add device |
 | **macOS** | Add Printer -> Default (Bonjour) |
 | **Linux / ChromeOS** | Appears automatically as a driverless (IPP Everywhere) printer |
+
+For a device-by-device walkthrough, see the [AirPrint and Mopria sharing guide](https://printman.eslamx.com/guides/share-usb-printer-airprint-mopria-windows). There are also dedicated guides for [Chromebook](https://printman.eslamx.com/guides/print-from-chromebook-to-usb-printer), [Android / Mopria](https://printman.eslamx.com/guides/mopria-print-service-usb-printer-android) and [macOS](https://printman.eslamx.com/guides/print-from-mac-to-usb-printer-wifi), plus a [discovery troubleshooting guide](https://printman.eslamx.com/guides/usb-printer-not-showing-up-wifi-troubleshooting).
 
 **Why it is different**
 
@@ -121,6 +125,8 @@ Pre-built Windows binaries are available on [**GitHub Releases**](https://github
 | [**Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | Single executable (~60 MB), (no .NET required) |
 | [**Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~6 MB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
 > **Quick Start:** Extract the ZIP file and run `printman.exe` directly or from Windows Terminal.
+
+🌐 The same downloads and a guided setup are on the [Printman website](https://printman.eslamx.com/#download).
 
 ---
 
