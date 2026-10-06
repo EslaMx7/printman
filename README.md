@@ -195,7 +195,7 @@ How it works: printman runs an IPP Everywhere / AirPrint print server on port `6
 > [!IMPORTANT]
 > Native print dialogs cannot type a PIN, so **anyone on your local network can print to shared printers** (just like a normal Wi-Fi printer). The PIN only protects the web UI (`serve` / `share --web`). Requests from non-private IP addresses are rejected.
 
-**Firewall:** allow printman when Windows asks, and make sure your Wi-Fi is set to a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup.
+**Firewall:** the first time you share, Windows asks (with a UAC prompt) whether to allow printman on the network - approve it on a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup.
 
 ### 3. Quick Terminal Printing
 
@@ -275,6 +275,7 @@ A small menu (↑/↓ and Enter, or press the number) lets you choose what to st
 | `list`  | `-list`, `--list` | List all installed printers | `printman list` |
 | `info`  | `-info`, `--info` | Inspect printer capabilities & paper trays | `printman info "HP Laser"` |
 | `interactive` | `-i` | Launch the terminal menu (same as running without arguments) | `printman -i` |
+| `version` | `-v`, `--version` | Show the Printman version | `printman --version` |
 | `help`  | `-h`, `--help` | Show command reference | `printman help` |
 
 ### Print Flags

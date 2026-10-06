@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-06
+
 ### Added
 - Network printer sharing (`printman share [printer ...]`, or `printman serve --share [printer]` alongside the web UI): shared printers appear as `Printman - <printer>` in the native print dialogs of iOS/iPadOS (AirPrint), Android (Mopria / Default Print Service), Windows, macOS and Linux.
 - IPP Everywhere / AirPrint print server (port 631, `--ipp-port`) supporting Print-Job, Validate-Job, Create-Job, Send-Document, Close-Job, Get-Jobs, Get-Job-Attributes, Cancel-Job, Cancel-My-Jobs, Identify-Printer and Get-Printer-Attributes.
@@ -17,10 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read-only Windows Firewall check that prints the exact `netsh` commands when inbound printing traffic looks blocked.
 - Hidden `--output-dir <dir>` server option that prints every job to a file (headless testing with virtual printers).
 - Solution restructure: the app now lives in `src/Printman/` with `Printman.slnx`, `global.json` (SDK pin + Microsoft.Testing.Platform runner) and `Directory.Build.props`; existing file history is preserved.
-- Unit test project `tests/Printman.Tests` (MSTest 4 + Microsoft.Testing.Platform) with 52 tests covering the IPP wire codec (round-trips, nested collections, malformed input), PWG media mapping, page ranges and CLI parsing.
-- Code coverage ratchet: `coverage.runsettings` scopes measurement to unit-testable code and `eng/check-coverage.ps1` enforces minimum line/branch coverage in CI, including pull requests.
+- Unit test project `tests/Printman.Tests` (MSTest 4 + Microsoft.Testing.Platform) with 799 tests covering the IPP wire codec and request handler, DNS wire codec, print pipeline, file cache, shared printer registry, CLI parsing, models and DTOs.
+- Code coverage ratchet: `coverage.runsettings` scopes measurement to unit-testable code and `eng/check-coverage.ps1` enforces 99% line / 92% branch coverage in CI, including pull requests; the build posts a sticky coverage report comment on PRs.
 
 ### Changed
+- `printman version` / `-v` / `--version` reports the running version, and the startup banner shows it.
 - Running `printman` without arguments now opens a small launcher menu (web UI, share default printer, choose printers to share, both); the print wizard, printer list and queue tools moved under "More tools". The wizard no longer prompts for port and PIN; use `serve` flags for custom values.
 - The serialized print queue is now a shared `IPrintJobPipeline` service used by both the web UI and network printing.
 - Startup banner lists addresses of adapters with a default gateway (Wi-Fi / Ethernet) before virtual and VPN adapters.

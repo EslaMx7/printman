@@ -1,3 +1,4 @@
+using System.Reflection;
 using Printman.Core.Models;
 
 namespace Printman.Interactive;
@@ -14,8 +15,32 @@ public static class ConsoleUi
 / ____/ /  / / / / / /_/ / / / / / /_/ / / / /       
 /_/   /_/  /_/_/ /_/\__/_/ /_/ /_/\__,_/_/ /_/       ");
         Console.ResetColor();
-        Console.WriteLine(" Print from your phone to any Windows printer over Wi-Fi");
+        Console.WriteLine($" Print from your phone to any Windows printer over Wi-Fi   v{AppVersion}");
         Console.WriteLine(" -------------------------------------------------------");
+    }
+
+    /// <summary>Informational version of the running executable (without build metadata).</summary>
+    public static string AppVersion
+    {
+        get
+        {
+            var assembly = typeof(ConsoleUi).Assembly;
+            var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrWhiteSpace(informational))
+            {
+                int plus = informational.IndexOf('+');
+                return plus > 0 ? informational[..plus] : informational;
+            }
+
+            return assembly.GetName().Version?.ToString(3) ?? "unknown";
+        }
+    }
+
+    /// <summary>Prints the version line for the `version` command.</summary>
+    public static void PrintVersion()
+    {
+        Console.WriteLine($"printman {AppVersion}");
+        Console.WriteLine(System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription);
     }
 
     public static void PrintSuccess(string message)
@@ -229,6 +254,7 @@ COMMANDS:
   list, -list, --list           List all installed printers and their status
   info <printer-name>           Show details & supported paper sizes for a printer
   interactive, -i               Launch the interactive printing wizard
+  version, -v, --version        Show the Printman version
   help, -h, --help              Display this help reference
 
 PRINT OPTIONS:

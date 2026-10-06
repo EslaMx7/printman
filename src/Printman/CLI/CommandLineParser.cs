@@ -25,6 +25,14 @@ public static class CommandLineParser
             return result;
         }
 
+        if (firstArg.Equals("version", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("-v", StringComparison.OrdinalIgnoreCase) ||
+            firstArg.Equals("--version", StringComparison.OrdinalIgnoreCase))
+        {
+            result.Command = CliCommandType.Version;
+            return result;
+        }
+
         if (firstArg.Equals("list", StringComparison.OrdinalIgnoreCase) ||
             firstArg.Equals("-list", StringComparison.OrdinalIgnoreCase) ||
             firstArg.Equals("--list", StringComparison.OrdinalIgnoreCase))

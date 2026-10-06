@@ -23,6 +23,10 @@ public class CliHandler(
                 ConsoleUi.PrintHelp();
                 return 0;
 
+            case CliCommandType.Version:
+                ConsoleUi.PrintVersion();
+                return 0;
+
             case CliCommandType.ListPrinters:
                 return HandleListPrinters();
 

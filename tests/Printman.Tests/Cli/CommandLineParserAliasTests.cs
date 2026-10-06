@@ -10,6 +10,15 @@ namespace Printman.Tests.Cli;
 [TestClass]
 public sealed class CommandLineParserAliasTests
 {
+    // ------------------------------------------------------------------ version command
+
+    [TestMethod]
+    [DataRow("version")]
+    [DataRow("-v")]
+    [DataRow("--version")]
+    public void Version_CommandAliases_AreAccepted(string command) =>
+        Assert.AreEqual(CliCommandType.Version, CommandLineParser.Parse([command]).Command);
+
     // ------------------------------------------------------------------ serve: value options
 
     [TestMethod]
