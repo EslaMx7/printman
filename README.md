@@ -16,12 +16,12 @@ Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency Windo
 **Turn your USB printer into a real Wi-Fi printer. One command, nothing to install:**
 
 ```powershell
-./printman share
+printman.exe share
 ```
 
 Then open the print dialog on any device on the same Wi-Fi and pick **`Printman - <your printer>`**. It simply appears like a normal network printer, with nothing to install.
 
-**Prefer printing from a browser instead?** Run `./printman serve` and open the link it shows on your phone.
+**Prefer printing from a browser instead?** Run `printman.exe serve` and open the link it shows on your phone.
 
 ---
 
