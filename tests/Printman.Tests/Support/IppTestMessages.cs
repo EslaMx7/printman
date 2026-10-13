@@ -51,11 +51,11 @@ public static class IppTestMessages
     public static byte[] PdfDoc(string marker = "%PDF-1.4 test") => System.Text.Encoding.ASCII.GetBytes(marker);
 
     /// <summary>Creates a shared printer with the given slug.</summary>
-    public static SharedPrinter Printer(string slug = "fake-printer", string windowsName = "Fake Printer") => new()
+    public static SharedPrinter Printer(string slug = "fake-printer", string systemName = "Fake Printer") => new()
     {
-        WindowsName = windowsName,
+        SystemName = systemName,
         Slug = slug,
-        DisplayName = $"Printman - {windowsName}",
+        DisplayName = $"Printman - {systemName}",
         Uuid = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
     };
 }

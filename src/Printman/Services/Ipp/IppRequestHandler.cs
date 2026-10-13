@@ -247,7 +247,7 @@ public class IppRequestHandler(
         _eventHub.Publish(new PrintEvent
         {
             Type = "queue_updated",
-            Printer = call.Printer.WindowsName,
+            Printer = call.Printer.SystemName,
             Message = $"Network job #{job.Id} '{job.Name}' cancellation requested."
         });
         return Response(call.Request, IppStatus.Ok);
@@ -277,7 +277,7 @@ public class IppRequestHandler(
         _eventHub.Publish(new PrintEvent
         {
             Type = "progress",
-            Printer = call.Printer.WindowsName,
+            Printer = call.Printer.SystemName,
             Message = $"Identify requested for '{call.Printer.DisplayName}' by {who}."
         });
         return Response(call.Request, IppStatus.Ok);
@@ -446,14 +446,14 @@ public class IppRequestHandler(
 
         var ticket = _pipeline.Enqueue(new PipelineBatch
         {
-            Printer = call.Printer.WindowsName,
+            Printer = call.Printer.SystemName,
             Items = [item],
             Source = "ipp"
         });
         job.Attach(ticket, format);
 
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"  [IPP] Job #{job.Id} '{job.Name}' from {job.UserName} ({call.Context.RemoteAddress}) -> {call.Printer.WindowsName} [{format}, {cached.FileSizeBytes / 1024} KB]");
+        Console.WriteLine($"  [IPP] Job #{job.Id} '{job.Name}' from {job.UserName} ({call.Context.RemoteAddress}) -> {call.Printer.SystemName} [{format}, {cached.FileSizeBytes / 1024} KB]");
         Console.ResetColor();
 
         _eventHub.Publish(new PrintEvent
@@ -461,7 +461,7 @@ public class IppRequestHandler(
             Type = "queued",
             JobId = ticket.Id,
             FileName = job.Name,
-            Printer = call.Printer.WindowsName,
+            Printer = call.Printer.SystemName,
             Message = $"Network print job #{job.Id} '{job.Name}' received from {job.UserName}."
         });
 

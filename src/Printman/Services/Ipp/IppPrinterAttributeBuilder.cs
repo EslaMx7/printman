@@ -58,7 +58,7 @@ public class IppPrinterAttributeBuilder(
         g.AddName("printer-dns-sd-name", printer.DisplayName);
         g.AddText("printer-info", printer.DisplayName);
         g.AddText("printer-location", Environment.MachineName);
-        g.AddText("printer-make-and-model", $"Printman {printer.WindowsName}");
+        g.AddText("printer-make-and-model", $"Printman {printer.SystemName}");
         g.AddUri("printer-more-info", webUri);
         g.AddUri("printer-uuid", $"urn:uuid:{printer.Uuid}");
         g.AddText("printer-device-id", BuildDeviceId(printer));
@@ -217,7 +217,7 @@ public class IppPrinterAttributeBuilder(
         if (_formats.SupportsPwgRaster) commands.Add("PWGRaster");
         if (_formats.SupportsUrf) commands.Add("URF");
         if (_formats.Supports(IppDocumentFormats.Jpeg)) commands.Add("JPEG");
-        var model = printer.WindowsName.Replace(';', ' ').Replace(':', ' ');
+        var model = printer.SystemName.Replace(';', ' ').Replace(':', ' ');
         return $"MFG:Printman;MDL:{model};CMD:{string.Join(',', commands)};";
     }
 

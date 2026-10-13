@@ -32,12 +32,12 @@ public static class TestData
     };
 
     public static SharedPrinter Shared(
-        string windowsName = "Fake Printer",
+        string systemName = "Fake Printer",
         string? slug = null,
         string displayName = "Printman - Fake Printer") => new()
     {
-        WindowsName = windowsName,
-        Slug = slug ?? Slugify(windowsName),
+        SystemName = systemName,
+        Slug = slug ?? Slugify(systemName),
         DisplayName = displayName,
         Uuid = Guid.Parse("11111111-2222-3333-4444-555555555555")
     };

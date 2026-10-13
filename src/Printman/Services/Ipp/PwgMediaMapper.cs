@@ -9,7 +9,7 @@ namespace Printman.Services.Ipp;
 public sealed record PwgMedia(string Name, int WidthHmm, int HeightHmm);
 
 /// <summary>
-/// Maps Windows paper sizes to standard PWG media names advertised over IPP.
+/// Maps local printer paper sizes (Windows or CUPS) to standard PWG media names advertised over IPP.
 /// </summary>
 public static class PwgMediaMapper
 {
@@ -70,6 +70,69 @@ public static class PwgMediaMapper
         }
 
         return result;
+    }
+
+    // Names that the generic rule in FriendlyName() does not produce
+    private static readonly Dictionary<string, string> FriendlyNames = new(StringComparer.Ordinal)
+    {
+        ["na_letter"] = "Letter", ["na_legal"] = "Legal", ["na_executive"] = "Executive", ["na_ledger"] = "Tabloid",
+        ["na_invoice"] = "Statement", ["na_foolscap"] = "Foolscap", ["na_govt-letter"] = "Government Letter",
+        ["na_index-4x6"] = "4x6 in", ["na_index-3x5"] = "3x5 in", ["na_5x7"] = "5x7 in", ["om_small-photo"] = "10x15 cm",
+        ["oe_photo-l"] = "L (3.5x5 in)", ["iso_c5"] = "Envelope C5", ["iso_dl"] = "Envelope DL",
+        ["na_number-10"] = "Envelope #10", ["na_monarch"] = "Envelope Monarch"
+    };
+
+    /// <summary>
+    /// Parses a PWG 5101.1 self-describing media name (e.g. "iso_a4_210x297mm", as reported by CUPS
+    /// media-supported) into a paper size whose <see cref="PaperSizeOption.Keyword"/> is that name.
+    /// Custom sizes close to a standard size (PPDs often define A5 as "custom_148.52x209.9mm_...") get the
+    /// standard name. Returns null for custom size ranges and names that do not follow the pattern.
+    /// </summary>
+    public static PaperSizeOption? FromPwgName(string keyword)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(keyword,
+            @"^(?<id>[a-z0-9]+_[^_]+)_(?<w>\d+(?:\.\d+)?)x(?<h>\d+(?:\.\d+)?)(?<unit>mm|in)$");
+        if (!m.Success) return null;
+
+        var id = m.Groups["id"].Value;
+        if (id is "custom_min" or "custom_max") return null;
+
+        double w = double.Parse(m.Groups["w"].Value, CultureInfo.InvariantCulture);
+        double h = double.Parse(m.Groups["h"].Value, CultureInfo.InvariantCulture);
+        bool inches = m.Groups["unit"].Value == "in";
+        int widthHi = (int)Math.Round(inches ? w * 100 : w / 0.254);
+        int heightHi = (int)Math.Round(inches ? h * 100 : h / 0.254);
+
+        string name;
+        if (id.StartsWith("custom_", StringComparison.Ordinal))
+        {
+            var standard = FindBySize((int)Math.Round(widthHi * 25.4), (int)Math.Round(heightHi * 25.4));
+            name = standard != null
+                ? FriendlyName(standard.Name[..standard.Name.LastIndexOf('_')])
+                : $"Custom {m.Groups["w"].Value}x{m.Groups["h"].Value} {m.Groups["unit"].Value}";
+        }
+        else
+        {
+            name = FriendlyName(id);
+        }
+
+        return new PaperSizeOption(name, 0, widthHi, heightHi) { Keyword = keyword };
+    }
+
+    /// <summary>"iso_a4" -> "A4", "jis_b4" -> "JIS B4", "na_super-b" -> "Super B".</summary>
+    private static string FriendlyName(string id)
+    {
+        if (FriendlyNames.TryGetValue(id, out var known)) return known;
+
+        int underscore = id.IndexOf('_');
+        var prefix = id[..underscore];
+        var size = id[(underscore + 1)..];
+        return prefix switch
+        {
+            "iso" => size.ToUpperInvariant(),
+            "jis" => "JIS " + size.ToUpperInvariant(),
+            _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(size.Replace('-', ' '))
+        };
     }
 
     public static PwgMedia? FindByName(string? name) =>

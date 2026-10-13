@@ -4,6 +4,9 @@ using Printman.Core.Abstractions;
 using Printman.Core.Models;
 using Printman.Interactive;
 using Printman.Services;
+#if !WINDOWS
+using Printman.Services.Cups;
+#endif
 using Printman.Services.Discovery;
 using Printman.Services.Ipp;
 using Printman.Services.Renderers;
@@ -23,14 +26,31 @@ public static class Program
         // 2. Dispatch between Interactive mode and CLI mode
         try
         {
-            if (args.Length == 0)
+            var parsedArgs = args.Length == 0 ? null : CommandLineParser.Parse(args);
+
+#if !WINDOWS
+            // Everything but help / version talks to cupsd; explain and stop early when it is not there
+            if (parsedArgs == null || CupsReadiness.Needs(parsedArgs.Command))
+            {
+                var exitCode = await CupsReadiness.EnsureAsync(
+                    serviceProvider.GetRequiredService<CupsClient>(),
+                    serviceProvider.GetRequiredService<IExternalTools>(),
+                    Console.ReadLine,
+                    Console.Out,
+                    interactive: !Console.IsInputRedirected && !Console.IsOutputRedirected);
+                if (exitCode is int code)
+                {
+                    return code;
+                }
+            }
+#endif
+
+            if (parsedArgs == null)
             {
                 var wizard = serviceProvider.GetRequiredService<InteractiveWizard>();
                 await wizard.RunAsync();
                 return 0;
             }
-
-            var parsedArgs = CommandLineParser.Parse(args);
 
             if (parsedArgs.Command == Core.Models.CliCommandType.Interactive)
             {
@@ -62,8 +82,20 @@ public static class Program
 
     public static void ConfigureServices(IServiceCollection services)
     {
-        // Core discovery and rendering abstractions
+        // OS print system: Windows spooler + GDI+, or CUPS on Linux / macOS (chosen at build time, see Printman.csproj)
+#if WINDOWS
         services.AddSingleton<IPrinterDiscoveryService, WindowsPrinterDiscoveryService>();
+        services.AddTransient<IPrintService, WindowsPrintService>();
+        services.AddSingleton<IPrintQueueService, WindowsPrintQueueService>();
+        services.AddSingleton<IFirewallInspector, WindowsFirewallInspector>();
+#else
+        services.AddSingleton<CupsClient>();
+        services.AddSingleton<IExternalTools, ExternalTool>();
+        services.AddSingleton<IPrinterDiscoveryService, CupsPrinterDiscoveryService>();
+        services.AddTransient<IPrintService, CupsPrintService>();
+        services.AddSingleton<IPrintQueueService, CupsPrintQueueService>();
+        services.AddSingleton<IFirewallInspector, NoFirewallInspector>();
+#endif
 
         // Register document renderers (Open/Closed principle: easily extend with new renderers)
         services.AddSingleton<IDocumentRenderer, PdfDocumentRenderer>();
@@ -75,8 +107,6 @@ public static class Program
 
         // Core business logic & validation
         services.AddTransient<IPrintJobValidator, PrintJobValidator>();
-        services.AddTransient<IPrintService, WindowsPrintService>();
-        services.AddSingleton<IPrintQueueService, WindowsPrintQueueService>();
 
         // Web Server, fast cache, and SSE services
         services.AddSingleton<IFileCacheService, FileCacheService>();
@@ -92,7 +122,6 @@ public static class Program
         services.AddSingleton<IIppRequestHandler, IppRequestHandler>();
         services.AddSingleton<IDnsSdServiceFactory, IppDnsSdServiceFactory>();
         services.AddSingleton<IServiceAdvertiser, MdnsResponder>();
-        services.AddSingleton<IFirewallInspector, WindowsFirewallInspector>();
         services.AddSingleton<Server.PrintingWebServerHost>();
 
         // Presentation & execution layers

@@ -116,6 +116,8 @@ Once pushed to `release`, GitHub Actions runs [`.github/workflows/release.yml`](
    Compresses to `printman-v$version-win-x64-framework-dependent.zip`.
 5. **Creates GitHub Release:**
    Uses `gh release create` to publish the release with both assets attached, the extracted changelog, download recommendations, and git commit history.
+6. **Attaches Linux / macOS Builds (`unix` job):**
+   After the release exists, `ubuntu-latest` publishes `linux-x64`, `linux-arm64` and `linux-arm`, and `macos-latest` publishes `osx-arm64` and `osx-x64` (on macOS so the executable is signed). Each is a self-contained single file packed as `printman-v$version-<rid>.tar.gz` and added with `gh release upload`.
 
 ---
 

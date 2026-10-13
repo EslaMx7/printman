@@ -21,12 +21,16 @@ public class FileCacheService : IFileCacheService
     public long MaxCacheSizeBytes { get; set; } = 500L * 1024 * 1024; // 500 MB default
 
     /// <param name="cacheDirectory">
-    /// Directory used for cached uploads. Defaults to a "cache" folder next to the executable;
+    /// Directory used for cached uploads. Defaults to <see cref="DefaultCacheDirectory"/> for this OS;
     /// tests inject a temporary directory to stay isolated.
     /// </param>
     public FileCacheService(string? cacheDirectory = null)
     {
-        _cacheDirectory = cacheDirectory ?? Path.Combine(AppContext.BaseDirectory, "cache");
+        _cacheDirectory = cacheDirectory ?? DefaultCacheDirectory(
+            OperatingSystem.IsWindows(),
+            AppContext.BaseDirectory,
+            Environment.GetEnvironmentVariable("XDG_CACHE_HOME"),
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
         if (!Directory.Exists(_cacheDirectory))
         {
             Directory.CreateDirectory(_cacheDirectory);
@@ -34,6 +38,23 @@ public class FileCacheService : IFileCacheService
 
         // Index existing files on startup
         IndexExistingFiles();
+    }
+
+    /// <summary>
+    /// Windows: "cache" next to the executable (portable zip installs). Linux / macOS: install folders such as
+    /// /usr/local/bin are read-only, so $XDG_CACHE_HOME/printman (default ~/.cache/printman) is used.
+    /// </summary>
+    public static string DefaultCacheDirectory(bool windows, string baseDirectory, string? xdgCacheHome, string userProfile)
+    {
+        if (windows)
+        {
+            return Path.Combine(baseDirectory, "cache");
+        }
+
+        var root = !string.IsNullOrWhiteSpace(xdgCacheHome) && Path.IsPathRooted(xdgCacheHome)
+            ? xdgCacheHome
+            : Path.Combine(userProfile, ".cache");
+        return Path.Combine(root, "printman");
     }
 
     public Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, CancellationToken ct = default) =>

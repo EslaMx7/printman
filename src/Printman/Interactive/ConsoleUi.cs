@@ -15,7 +15,7 @@ public static class ConsoleUi
 / ____/ /  / / / / / /_/ / / / / / /_/ / / / /       
 /_/   /_/  /_/_/ /_/\__/_/ /_/ /_/\__,_/_/ /_/       ");
         Console.ResetColor();
-        Console.WriteLine($" Print from your phone to any Windows printer over Wi-Fi   v{AppVersion}");
+        Console.WriteLine($" Print from your phone to any printer over Wi-Fi   v{AppVersion}");
         Console.WriteLine(" -------------------------------------------------------");
     }
 
@@ -226,7 +226,11 @@ public static class ConsoleUi
     public static void PrintHelp()
     {
         ShowBanner();
-        Console.WriteLine(@"
+        bool windows = OperatingSystem.IsWindows();
+        string exe = windows ? "printman.exe" : "printman";
+        string spooler = windows ? "Windows Spooler" : "CUPS";
+        string pdfEngine = windows ? "Native high-resolution WinRT engine" : "converted by CUPS";
+        Console.WriteLine($@"
 USAGE:
   printman <file-path> [options]
   printman <command> [arguments]
@@ -247,8 +251,8 @@ COMMANDS:
                                 Options: --select (pick printers from a checklist),
                                          --all (every installed printer),
                                          --web (also start the web UI; accepts serve options),
-                                         --ipp-port <n> (default: 631), --no-mdns (no discovery)
-  queue, q [printer] [--watch]  Inspect real-time Windows Spooler & pipeline queue
+                                         --ipp-port <n> (default: {ShareOptions.DefaultIppPort}), --no-mdns (no discovery)
+  queue, q [printer] [--watch]  Inspect real-time print queue ({spooler}) & pipeline jobs
   cancel <job-id> [-p <name>]   Cancel a specific print job by ID
   purge [printer]               Purge / cancel all jobs on a printer queue
   list, -list, --list           List all installed printers and their status
@@ -265,41 +269,41 @@ PRINT OPTIONS:
   -orientation, -o <p|l>        Orientation: portrait (p), landscape (l), auto
   -duplex, -d <mode>            Duplex mode: simplex, vertical (long-edge), horizontal (short-edge)
   -color <color|mono>           Color mode preference (default: printer default)
-  -dpi <number>                 Rasterization resolution for PDF/images (default: 300)
+  -dpi <number>                 Rasterization resolution for PDF/images on Windows (default: 300)
   -fit / -nofit                 Scale to fit page margins (default: enabled)
 
 SUPPORTED FILE TYPES:
-  PDF documents:                .pdf (Native high-resolution WinRT engine)
+  PDF documents:                .pdf ({pdfEngine})
   Images:                       .png, .jpg, .jpeg, .bmp, .gif, .tiff
   Text / Code files:            .txt, .log, .csv, .json, .md, .xml, .yaml
   Driverless raster:            .pwg (PWG Raster), .urf (Apple Raster / AirPrint)
 
 EXAMPLES:
-  printman.exe ""./doc.pdf""
+  {exe} ""./doc.pdf""
       Prints entire PDF to the default printer.
 
-  printman.exe ""./doc.pdf"" -printer ""HP Laser""
+  {exe} ""./doc.pdf"" -printer ""HP Laser""
       Finds printer matching 'HP Laser' and prints whole document.
 
-  printman.exe ""./doc.pdf"" -pages 1:3
+  {exe} ""./doc.pdf"" -pages 1:3
       Prints pages 1 through 3 to the default printer.
 
-  printman.exe ""./doc.pdf"" -size A4
+  {exe} ""./doc.pdf"" -size A4
       Prints whole document using A4 paper size.
 
-  printman.exe ""./invoice.pdf"" -p ""HP"" -pages 1:2 -size A4 -copies 2 -duplex vertical
+  {exe} ""./invoice.pdf"" -p ""HP"" -pages 1:2 -size A4 -copies 2 -duplex vertical
       Full featured print job: prints 2 copies of pages 1-2 on A4 double-sided.
 
-  printman.exe list
+  {exe} list
       Lists all detected printers on this machine.
 
-  printman.exe share ""HP Laser"" ""Canon""
+  {exe} share ""HP Laser"" ""Canon""
       Two network printers that phones and PCs find in their print dialogs (no web UI).
 
-  printman.exe share --web
+  {exe} share --web
       Shares the default printer and also starts the web UI.
 
-  printman.exe info ""HP LaserJet""
+  {exe} info ""HP LaserJet""
       Shows paper trays, duplex support, and capabilities of the printer.
 ");
     }

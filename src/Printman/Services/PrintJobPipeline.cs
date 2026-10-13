@@ -277,7 +277,8 @@ public class PrintJobPipeline(
             return null;
         }
 
-        var ext = printerName.Contains("PDF", StringComparison.OrdinalIgnoreCase) ? ".pdf"
+        // CUPS print-to-file always produces PDF; on Windows the virtual printer decides the format
+        var ext = !OperatingSystem.IsWindows() || printerName.Contains("PDF", StringComparison.OrdinalIgnoreCase) ? ".pdf"
             : printerName.Contains("XPS", StringComparison.OrdinalIgnoreCase) ? ".oxps"
             : ".prn";
 

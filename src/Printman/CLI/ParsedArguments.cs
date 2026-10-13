@@ -29,7 +29,7 @@ public class ParsedArguments
     public bool SelectSharedPrinters { get; set; } = false;
     public bool ShareAllPrinters { get; set; } = false;
     public bool EnableWebUi { get; set; } = true; // false for "share" without --web
-    public int IppPort { get; set; } = 631;
+    public int IppPort { get; set; } = ShareOptions.DefaultIppPort;
     public bool EnableMdns { get; set; } = true;
     public bool IppAllowAnySource { get; set; } = false;
     public bool WatchQueue { get; set; } = false;

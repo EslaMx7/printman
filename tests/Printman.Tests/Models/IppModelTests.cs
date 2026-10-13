@@ -358,7 +358,7 @@ public sealed class IppModelTests
     {
         var printer = new SharedPrinter
         {
-            WindowsName = "HP LaserJet",
+            SystemName = "HP LaserJet",
             Slug = "hp-laserjet",
             DisplayName = "Printman - HP LaserJet",
             Uuid = Guid.NewGuid()

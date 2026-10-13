@@ -24,7 +24,7 @@ public class WindowsPrinterDiscoveryService : IPrinterDiscoveryService
                 var paperSizes = new List<PaperSizeOption>();
                 foreach (PaperSize ps in settings.PaperSizes)
                 {
-                    paperSizes.Add(PaperSizeOption.FromDrawing(ps));
+                    paperSizes.Add(new PaperSizeOption(ps.PaperName, (int)ps.RawKind, ps.Width, ps.Height));
                 }
 
                 var resolutions = new List<string>();
@@ -77,34 +77,7 @@ public class WindowsPrinterDiscoveryService : IPrinterDiscoveryService
             return GetDefaultPrinter();
         }
 
-        var printers = GetPrinters();
-        var trimmedQuery = query.Trim();
-
-        // 1. Exact match
-        var exact = printers.FirstOrDefault(p =>
-            string.Equals(p.Name, trimmedQuery, StringComparison.OrdinalIgnoreCase));
-        if (exact != null) return exact;
-
-        // 2. Starts with
-        var starts = printers.FirstOrDefault(p =>
-            p.Name.StartsWith(trimmedQuery, StringComparison.OrdinalIgnoreCase));
-        if (starts != null) return starts;
-
-        // 3. Substring match
-        var contains = printers.FirstOrDefault(p =>
-            p.Name.Contains(trimmedQuery, StringComparison.OrdinalIgnoreCase));
-        if (contains != null) return contains;
-
-        // 4. Token-based match (e.g. "HP Laser" matches "HP LaserJet Professional P1102")
-        var tokens = trimmedQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (tokens.Length > 0)
-        {
-            var tokenMatch = printers.FirstOrDefault(p =>
-                tokens.All(t => p.Name.Contains(t, StringComparison.OrdinalIgnoreCase)));
-            if (tokenMatch != null) return tokenMatch;
-        }
-
-        return null;
+        return PrinterMatcher.Find(GetPrinters(), query);
     }
 
     private static string? GetDefaultPrinterName()

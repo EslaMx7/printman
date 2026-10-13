@@ -416,7 +416,8 @@ public static class CommandLineParser
                     break;
 
                 default:
-                    if (!arg.StartsWith('-') && !arg.StartsWith('/'))
+                    // "/x" is a mistyped switch on Windows but an absolute path on Linux / macOS
+                    if (!arg.StartsWith('-') && !(OperatingSystem.IsWindows() && arg.StartsWith('/')))
                     {
                         // Positional file path
                         result.FilePath = arg.Trim('"', '\'');

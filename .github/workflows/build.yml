@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     steps:
@@ -94,3 +94,101 @@ jobs:
         with:
           name: publish
           path: ./publish
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build (Raspberry Pi / ARM)
+        run: |
+          dotnet build src/Printman/Printman.csproj --configuration Release -r linux-arm64
+          dotnet build src/Printman/Printman.csproj --configuration Release -r linux-arm
+
+      - name: Publish (x64)
+        run: dotnet publish src/Printman/Printman.csproj --configuration Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+
+      - name: Without CUPS, printman explains and exits 1
+        run: |
+          set +e
+          out=$(./publish/printman list 2>&1); code=$?
+          set -e
+          echo "$out"
+          test "$code" = "1"
+          echo "$out" | grep -q "Cannot reach the CUPS print service"
+          echo "$out" | grep -q "sudo apt install cups cups-filters"
+          ./publish/printman --version   # help / version never need CUPS
+
+      - name: Install CUPS with a virtual PDF printer and a stalled queue
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cups cups-client cups-filters cups-pdf cups-ipp-utils poppler-utils avahi-daemon avahi-utils
+          sudo systemctl start cups avahi-daemon
+          sudo lpadmin -p PDF -E -v cups-pdf:/ -P /usr/share/ppd/cups-pdf/CUPS-PDF_opt.ppd
+          # "Stalled": points at a port nobody listens on, so jobs stay queued for the queue / cancel / purge tests
+          sudo lpadmin -p Stalled -E -v socket://127.0.0.1:9100 -m drv:///sample.drv/generic.ppd 2>&1 | grep -v deprecated || true
+          lpstat -p
+
+      - name: Smoke test, print (no paper)
+        run: |
+          ./publish/printman list
+          ./publish/printman info PDF
+          ./publish/printman tests/fixtures/test_sample.pdf -printer PDF -pages 1:2 -output out/test.pdf
+          ./publish/printman tests/fixtures/sample.txt -printer PDF -output out/text.pdf
+          test "$(pdfinfo out/test.pdf | awk '/^Pages:/ {print $2}')" = "2"
+          ./publish/printman tests/fixtures/test_sample.pdf -printer PDF -pages 2
+          for i in $(seq 1 20); do ls /home/runner/PDF/*.pdf 2>/dev/null && break; sleep 1; done
+          ls /home/runner/PDF/*.pdf
+
+      - name: Smoke test, queue / cancel / purge
+        run: |
+          ./publish/printman tests/fixtures/test_sample.pdf -printer Stalled
+          ./publish/printman tests/fixtures/sample.txt -printer Stalled
+          ./publish/printman queue Stalled | tee queue.txt
+          grep -q "test_sample.pdf" queue.txt
+          grep -q "sample.txt" queue.txt
+          id=$(lpstat -o Stalled | head -1 | awk '{print $1}' | sed 's/.*-//')
+          ./publish/printman cancel "$id"
+          test "$(lpstat -o Stalled | wc -l)" = "1"
+          ./publish/printman purge Stalled
+          test "$(lpstat -o Stalled | wc -l)" = "0"
+
+      - name: Smoke test, share (IPP + mDNS next to Avahi)
+        run: |
+          ./publish/printman share PDF --output-dir shared > share.log 2>&1 &
+          for i in $(seq 1 30); do grep -q "Press Ctrl+C" share.log && break; sleep 1; done
+          cat share.log
+          ipptool -t ipp://localhost:8631/ipp/print/pdf get-printer-attributes.test
+          ipptool -t -f tests/fixtures/test_sample.pdf ipp://localhost:8631/ipp/print/pdf print-job.test
+          for i in $(seq 1 20); do ls shared/*.pdf 2>/dev/null && break; sleep 1; done
+          test "$(pdfinfo shared/*.pdf | awk '/^Pages:/ {print $2}')" = "3"
+          for i in $(seq 1 10); do avahi-browse -rpt _ipp._tcp | tee browse.txt | grep -q "Printman" && break; sleep 2; done
+          grep "Printman" browse.txt | grep -q ":8631\|;8631;"
+          kill %1; wait %1 || true
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: |
+          dotnet build src/Printman/Printman.csproj --configuration Release -r osx-arm64
+          dotnet build src/Printman/Printman.csproj --configuration Release -r osx-x64
+
+      - name: Smoke test
+        run: dotnet run --project src/Printman --configuration Release -r osx-arm64 -- list

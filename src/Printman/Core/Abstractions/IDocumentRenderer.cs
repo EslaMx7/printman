@@ -1,7 +1,9 @@
-﻿using System.Drawing;
-
 namespace Printman.Core.Abstractions;
 
+/// <summary>
+/// A supported document format. Platform independent: the Windows build draws pages itself
+/// (<c>IGdiDocumentRenderer</c>), the Linux / macOS build hands the file to CUPS.
+/// </summary>
 public interface IDocumentRenderer
 {
     /// <summary>
@@ -13,15 +15,4 @@ public interface IDocumentRenderer
     /// Gets the total number of pages in the document.
     /// </summary>
     Task<int> GetPageCountAsync(string filePath);
-
-    /// <summary>
-    /// Renders a specific 1-based page onto the target Graphics surface.
-    /// </summary>
-    Task RenderPageAsync(
-        string filePath,
-        int pageNumber,
-        Graphics graphics,
-        Rectangle printableArea,
-        int dpi,
-        bool fitToPage);
 }

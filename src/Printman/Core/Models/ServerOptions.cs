@@ -34,11 +34,17 @@ public sealed record ShareOptions
     /// <summary>Opt-in (`share`, `--share`): when false the server is web-only.</summary>
     public bool Enabled { get; init; }
 
-    /// <summary>Printer names (fuzzy matched). Empty means the Windows default printer.</summary>
+    /// <summary>Printer names (fuzzy matched). Empty means the system default printer.</summary>
     public IReadOnlyList<string> Printers { get; init; } = [];
 
-    /// <summary>TCP port for the IPP endpoint (default 631, the standard IPP port).</summary>
-    public int IppPort { get; init; } = 631;
+    /// <summary>
+    /// Default IPP port: 631 (the standard IPP port) on Windows. On Linux / macOS CUPS already owns 631
+    /// (and ports below 1024 need root on Linux), so 8631 is used; clients find it through DNS-SD.
+    /// </summary>
+    public static int DefaultIppPort => OperatingSystem.IsWindows() ? 631 : 8631;
+
+    /// <summary>TCP port for the IPP endpoint.</summary>
+    public int IppPort { get; init; } = DefaultIppPort;
 
     /// <summary>Advertise shared printers via mDNS / DNS-SD (Bonjour).</summary>
     public bool EnableMdns { get; init; } = true;

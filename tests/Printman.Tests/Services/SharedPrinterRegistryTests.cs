@@ -16,7 +16,7 @@ public sealed class SharedPrinterRegistryTests
         FakePrintQueueService? queue = null) =>
         new(discovery ?? new FakePrinterDiscoveryService(), queue ?? new FakePrintQueueService());
 
-    private static void ExpireCapabilitiesCache(SharedPrinterRegistry registry, string windowsName, PrinterInfo? info)
+    private static void ExpireCapabilitiesCache(SharedPrinterRegistry registry, string systemName, PrinterInfo? info)
     {
         var field = typeof(SharedPrinterRegistry)
             .GetField("_capabilities", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -24,10 +24,10 @@ public sealed class SharedPrinterRegistryTests
         var dictionary = field.GetValue(registry)!;
         var stale = DateTime.UtcNow - TimeSpan.FromMinutes(5);
         var entry = Activator.CreateInstance(typeof(ValueTuple<PrinterInfo, DateTime>), info, stale)!;
-        dictionary.GetType().GetProperty("Item")!.SetValue(dictionary, entry, [windowsName]);
+        dictionary.GetType().GetProperty("Item")!.SetValue(dictionary, entry, [systemName]);
     }
 
-    private static void ExpireStatusCache(SharedPrinterRegistry registry, string windowsName, PrinterStatusInfo? status)
+    private static void ExpireStatusCache(SharedPrinterRegistry registry, string systemName, PrinterStatusInfo? status)
     {
         var field = typeof(SharedPrinterRegistry)
             .GetField("_status", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -35,7 +35,7 @@ public sealed class SharedPrinterRegistryTests
         var dictionary = field.GetValue(registry)!;
         var stale = DateTime.UtcNow - TimeSpan.FromMinutes(5);
         var entry = Activator.CreateInstance(typeof(ValueTuple<PrinterStatusInfo, DateTime>), status, stale)!;
-        dictionary.GetType().GetProperty("Item")!.SetValue(dictionary, entry, [windowsName]);
+        dictionary.GetType().GetProperty("Item")!.SetValue(dictionary, entry, [systemName]);
     }
 
     [TestMethod]
@@ -48,7 +48,7 @@ public sealed class SharedPrinterRegistryTests
 
         Assert.AreEqual(0, unresolved.Count);
         Assert.AreEqual(1, registry.Printers.Count);
-        Assert.AreEqual("Default One", registry.Printers[0].WindowsName);
+        Assert.AreEqual("Default One", registry.Printers[0].SystemName);
         Assert.AreEqual("default-one", registry.Printers[0].Slug);
         Assert.AreEqual("Printman - Default One", registry.Printers[0].DisplayName);
     }
@@ -75,7 +75,7 @@ public sealed class SharedPrinterRegistryTests
 
         Assert.AreEqual(0, unresolved.Count);
         Assert.AreEqual(1, registry.Printers.Count);
-        Assert.AreEqual("HP LaserJet Pro", registry.Printers[0].WindowsName);
+        Assert.AreEqual("HP LaserJet Pro", registry.Printers[0].SystemName);
     }
 
     [TestMethod]
@@ -102,7 +102,7 @@ public sealed class SharedPrinterRegistryTests
 
         CollectionAssert.AreEqual(new[] { "Missing" }, unresolved.ToArray());
         Assert.AreEqual(1, registry.Printers.Count);
-        Assert.AreEqual("Alpha", registry.Printers[0].WindowsName);
+        Assert.AreEqual("Alpha", registry.Printers[0].SystemName);
     }
 
     [TestMethod]
@@ -118,7 +118,7 @@ public sealed class SharedPrinterRegistryTests
 
         Assert.AreEqual(0, unresolved.Count);
         Assert.AreEqual(1, registry.Printers.Count);
-        Assert.AreEqual("Duplicate", registry.Printers[0].WindowsName);
+        Assert.AreEqual("Duplicate", registry.Printers[0].SystemName);
     }
 
     [TestMethod]
@@ -257,9 +257,9 @@ public sealed class SharedPrinterRegistryTests
         var registry = Registry(discovery);
         registry.Configure(["Alpha", "Beta"]);
 
-        Assert.AreEqual("Alpha", registry.Find(null)!.WindowsName);
-        Assert.AreEqual("Alpha", registry.Find("")!.WindowsName);
-        Assert.AreEqual("Alpha", registry.Find("   ")!.WindowsName);
+        Assert.AreEqual("Alpha", registry.Find(null)!.SystemName);
+        Assert.AreEqual("Alpha", registry.Find("")!.SystemName);
+        Assert.AreEqual("Alpha", registry.Find("   ")!.SystemName);
     }
 
     [TestMethod]
