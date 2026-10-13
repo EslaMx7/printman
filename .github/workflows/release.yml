@@ -179,10 +179,11 @@ jobs:
           Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/portable"
           Compress-Archive -Path "./dist/portable/*" -DestinationPath "./printman-v$ver-win-x64-framework-dependent.zip" -Force
 
-      - name: Create GitHub Release (Draft)
+      - name: Create or Update GitHub Release (Draft)
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           $tag = "${{ steps.semver.outputs.TAG }}"
           $ver = "${{ steps.semver.outputs.VERSION }}"
@@ -224,13 +225,34 @@ jobs:
           - **``checksums.txt``**: SHA-256 hashes of all release packages.
           "@
 
-          gh release create $tag `
-            "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 - Recommended)" `
-            "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64)" `
-            "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
-            --title "Printman $tag" `
-            --notes $releaseNotes `
-            --draft
+          $releaseExists = $false
+          try {
+              gh release view $tag > $null 2>&1
+              if ($LASTEXITCODE -eq 0) {
+                  $releaseExists = $true
+              }
+          } catch {
+              $releaseExists = $false
+          }
+
+          if ($releaseExists) {
+              Write-Host "Release $tag already exists. Updating notes and uploading Windows assets with --clobber..."
+              gh release edit $tag --title "Printman $tag" --notes $releaseNotes
+              gh release upload $tag `
+                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 - Recommended)" `
+                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64)" `
+                "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
+                --clobber
+          } else {
+              Write-Host "Creating draft release $tag..."
+              gh release create $tag `
+                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 - Recommended)" `
+                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64)" `
+                "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
+                --title "Printman $tag" `
+                --notes $releaseNotes `
+                --draft
+          }
 
   # Linux / macOS builds are attached to the draft release created above. macOS archives are built on macOS so the
   # SDK can ad-hoc sign the executable (Apple Silicon refuses to run unsigned binaries).
@@ -257,6 +279,7 @@ jobs:
       - name: Publish and upload
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.release.outputs.version }}
           TAG: ${{ needs.release.outputs.tag }}
         run: |
