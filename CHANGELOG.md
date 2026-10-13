@@ -8,12 +8,16 @@ A rendered version of this file is available at [printman.eslamx.com/changelog](
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-13
+
 ### Added
 - Linux, macOS and Raspberry Pi support (`linux-x64`, `linux-arm64`, `linux-arm`, `osx-x64`, `osx-arm64`). Printing, printer discovery, queue, cancel/purge, the web UI and network sharing go through CUPS over IPP (its local socket, as the calling user); documents are handed to CUPS as-is, so no PDF engine is bundled. Print-to-file (`-output`, `--output-dir`) uses `cupsfilter` and writes PDF.
+- Windows ARM64 standalone single-file distribution (`win-arm64`).
 - Dependency-free PDF page counter for platforms without WinRT (falls back to `pdfinfo` / `qpdf` for encrypted files).
-- Release archives for Linux and macOS, and Linux/macOS CI jobs (the Linux job prints to a CUPS virtual PDF printer and exercises `queue`, `cancel`, `purge` and `share` with `ipptool` / Avahi).
+- Release archives for Linux, macOS and Windows ARM64, and Linux/macOS CI jobs (the Linux job prints to a CUPS virtual PDF printer and exercises `queue`, `cancel`, `purge` and `share` with `ipptool` / Avahi).
 - Startup check on Linux / macOS: when CUPS is not installed or not running, printman explains how to install or start it for the detected package manager (macOS only needs the service started) and offers a retry instead of showing a menu that cannot work.
 - Unit tests for the CUPS services against an in-memory cupsd (`FakeCupsServer`).
+- Automated SHA-256 `checksums.txt` asset verification in release pipeline.
 
 ### Changed
 - On Linux and macOS the default IPP port is `8631` (CUPS owns `631`), the file cache lives in `$XDG_CACHE_HOME/printman` (default `~/.cache/printman`), and the mDNS responder binds the wildcard address so it coexists with Avahi / mDNSResponder.

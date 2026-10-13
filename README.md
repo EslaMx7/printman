@@ -18,12 +18,16 @@ Give your old USB printer real Wi-Fi superpowers. A small, zero-dependency tool 
 **Turn your USB printer into a real Wi-Fi printer. One command, nothing to install:**
 
 ```powershell
+# Windows
 printman.exe share
+
+# Linux, Raspberry Pi & macOS
+./printman share
 ```
 
 Then open the print dialog on any device on the same Wi-Fi and pick **`Printman - <your printer>`**. It simply appears like a normal network printer, with nothing to install.
 
-**Prefer printing from a browser instead?** Run `printman.exe serve` and open the link it shows on your phone.
+**Prefer printing from a browser instead?** Run `printman share --web` (or `printman serve`) and open the link it shows on your phone.
 
 ---
 
@@ -118,23 +122,33 @@ For a device-by-device walkthrough, see the [AirPrint and Mopria sharing guide](
 
 ## 📥 Download
 
-Pre-built binaries are available on [**GitHub Releases**](https://github.com/EslaMx7/printman/releases/latest):
+Pre-built standalone binaries are available on [**GitHub Releases**](https://github.com/EslaMx7/printman/releases/latest):
 
-| Package | Details |
-| :--- | :--- |
-| [**Windows Standalone ZIP**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | `win-x64`: single executable (~60 MB), (no .NET required) |
-| [**Windows Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~6 MB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
-| [**Linux tar.gz**](https://github.com/EslaMx7/printman/releases/latest) | `linux-x64`, `linux-arm64` (Raspberry Pi 3/4/5 with 64-bit OS), `linux-arm` (Raspberry Pi 2/3/4 with 32-bit OS): single executable, no .NET required |
-| [**macOS tar.gz**](https://github.com/EslaMx7/printman/releases/latest) | `osx-arm64` (Apple Silicon), `osx-x64` (Intel): single executable, no .NET required |
-> **Quick Start (Windows):** Extract the ZIP file and run `printman.exe` directly or from Windows Terminal.
->
-> **Quick Start (Linux / Raspberry Pi):** Printman prints through CUPS. Install it and add your printer once (`sudo apt install cups`, then add the printer in your desktop's printer settings or at `http://localhost:631`), then extract and run `./printman`.
->
-> **Quick Start (macOS):** Add your printer in System Settings, extract the archive and run `./printman` from Terminal. If macOS blocks it, run `xattr -d com.apple.quarantine ./printman` once.
->
-> The examples below use `printman.exe`; on Linux and macOS run `./printman` (or put it on your `PATH`). Pi Zero, Zero W and Pi 1 (ARMv6) are not supported by .NET.
+| Package | Target RID | Details |
+| :--- | :--- | :--- |
+| [**Windows Standalone (x64)**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | `win-x64` | Single executable (~60 MB), runs with zero prerequisites |
+| [**Windows Standalone (ARM64)**](https://github.com/EslaMx7/printman/releases/latest) | `win-arm64` | Native single executable for Snapdragon X Elite & ARM64 Windows PCs |
+| [**Windows Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | `win-x64` | Lightweight (~6 MB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
+| [**Linux (x86_64)**](https://github.com/EslaMx7/printman/releases/latest) | `linux-x64` | Single executable, prints through CUPS (no .NET required) |
+| [**Raspberry Pi / Linux (ARM64)**](https://github.com/EslaMx7/printman/releases/latest) | `linux-arm64` | Raspberry Pi 3/4/5 (64-bit OS), single executable |
+| [**Raspberry Pi / Linux (ARMv7)**](https://github.com/EslaMx7/printman/releases/latest) | `linux-arm` | Raspberry Pi 2/3/4 (32-bit OS), single executable |
+| [**macOS (Apple Silicon)**](https://github.com/EslaMx7/printman/releases/latest) | `osx-arm64` | Single executable for Apple Silicon (M1/M2/M3/M4) |
+| [**macOS (Intel)**](https://github.com/EslaMx7/printman/releases/latest) | `osx-x64` | Single executable for Intel-based Macs |
+| [**SHA-256 Checksums**](https://github.com/EslaMx7/printman/releases/latest) | `checksums.txt` | Cryptographic SHA-256 hashes for all release packages |
 
-🌐 The same downloads and a guided setup are on the [Printman website](https://printman.eslamx.com/#download).
+> **Quick Start (Windows):** Extract the ZIP and run `printman.exe` directly or from Windows Terminal.
+>
+> **Quick Start (Linux / Raspberry Pi):** Printman communicates with the local CUPS print system. Install CUPS if not already present:
+> - **Debian / Ubuntu / Raspberry Pi OS:** `sudo apt install cups cups-filters && sudo systemctl enable --now cups`
+> - **Fedora / RHEL:** `sudo dnf install cups cups-filters && sudo systemctl enable --now cups`
+> - **Arch Linux:** `sudo pacman -S cups cups-filters && sudo systemctl enable --now cups`
+> - **Alpine Linux:** `sudo apk add cups cups-filters && sudo rc-service cupsd start`
+> 
+> Add your printer in your desktop's printer settings or at `http://localhost:631`, then extract the archive and run `./printman share`.
+>
+> **Quick Start (macOS):** Add your printer in System Settings, extract the archive and run `./printman share` in Terminal. If macOS Gatekeeper flags the binary, run `xattr -d com.apple.quarantine ./printman` once.
+
+🌐 Interactive downloads and a guided setup are on the [Printman website](https://printman.eslamx.com/#download).
 
 ---
 
@@ -273,6 +287,40 @@ How it works: printman runs an IPP Everywhere / AirPrint print server on port `6
 
 **Firewall:** the first time you share, Windows asks (with a UAC prompt) whether to allow printman on the network - approve it on a **Private** network. If devices cannot see the printer, printman prints the exact `netsh` commands to run at startup. On Linux with a firewall enabled, open the IPP port and mDNS (e.g. `sudo ufw allow 8631/tcp && sudo ufw allow 5353/udp`, plus `5000/tcp` for the web UI); printman shares UDP 5353 with Avahi / Bonjour.
 
+#### 🐧 Run 24/7 on Linux or Raspberry Pi (systemd)
+
+Turn a Raspberry Pi or spare Linux machine into an always-on print server that starts on boot:
+
+1. Install the standalone binary to `/usr/local/bin`:
+   ```bash
+   sudo cp printman /usr/local/bin/
+   sudo chmod +x /usr/local/bin/printman
+   ```
+
+2. Create `/etc/systemd/system/printman.service`:
+   ```ini
+   [Unit]
+   Description=Printman Universal AirPrint & Mopria Print Server
+   After=network.target cups.service
+   Wants=cups.service
+
+   [Service]
+   Type=simple
+   ExecStart=/usr/local/bin/printman share --all
+   Restart=always
+   RestartSec=5
+   Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+3. Enable and start the service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now printman
+   ```
+
 ### 3. Quick Terminal Printing
 
 ```powershell
@@ -360,13 +408,13 @@ A small menu (↑/↓ and Enter, or press the number) lets you choose what to st
 | `-printer` | `-p`, `--printer` | Target printer name or partial match | `-p "HP Laser"` |
 | `-pages` | `--pages` | Page range or individual pages | `-pages 1:3`, `-pages 2,5` |
 | `-size` | `-s`, `--size` | Paper size name | `-size A4`, `-size Letter` |
-| `-copies` | `-c`, `--copies` | Number of copies | `-copies 2` |
+| `-copies` | `-c`, `--copies` | Number of copies (forwarded via IPP `copies` attribute to CUPS, or spooled on Windows) | `-copies 2` |
 | `-orientation` | `-o`, `--orientation` | Orientation: `portrait`, `landscape`, `auto` | `-o landscape` |
 | `-duplex` | `-d`, `--duplex` | Duplex mode: `simplex`, `vertical`, `horizontal` | `-d vertical` |
 | `-color` | `--color` | Color mode: `color`, `mono` | `-color mono` |
 | `-dpi` | `--dpi` | Resolution for PDF rendering (default: 300) | `-dpi 300` |
 | `-fit` | `-nofit` | Fit content to printable area (default: true) | `-fit` |
-| `-output` | `-out`, `--output` | Print to file (for virtual printers like XPS/PDF) | `-output "out.xps"` |
+| `-output` | `-out`, `--output` | Print to file (uses `cupsfilter` on Linux/macOS to produce PDF; virtual printer on Windows) | `-output "out.pdf"` |
 
 ### Web Server Flags (`serve`)
 | Option | Description | Default |

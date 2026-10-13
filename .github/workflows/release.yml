@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - release
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Explicit semantic version (e.g. 2.0.0). Leave blank to calculate automatically."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -40,37 +46,45 @@ jobs:
         id: semver
         shell: pwsh
         run: |
-          git fetch --tags --force
-          $headTag = git tag --points-at HEAD "v*.*.*" | Select-Object -First 1
-          if ($headTag) {
-              $tag = $headTag
-              $version = $tag.TrimStart('v')
-              Write-Host "Reusing existing tag at HEAD: $tag"
-          } else {
-              $latestTag = git tag -l "v*.*.*" --sort=-v:refname | Select-Object -First 1
-              if (-not $latestTag) {
-                  $version = "1.0.0"
-              } else {
-                  $cleanTag = $latestTag.TrimStart('v')
-                  $parts = $cleanTag.Split('.')
-                  $major = [int]$parts[0]
-                  $minor = [int]$parts[1]
-                  $patch = [int]$parts[2]
-
-                  $commits = git log "$latestTag..HEAD" --oneline
-                  if ($commits -match "BREAKING CHANGE" -or $commits -match "^\w+!:") {
-                      $major++
-                      $minor = 0
-                      $patch = 0
-                  } elseif ($commits -match "feat(\(.*\))?:") {
-                      $minor++
-                      $patch = 0
-                  } else {
-                      $patch++
-                  }
-                  $version = "$major.$minor.$patch"
-              }
+          $inputVersion = "${{ github.event.inputs.version }}".Trim()
+          if ($inputVersion) {
+              $cleanVersion = $inputVersion.TrimStart('v')
+              $version = $cleanVersion
               $tag = "v$version"
+              Write-Host "Using workflow_dispatch explicit version: $version ($tag)"
+          } else {
+              git fetch --tags --force
+              $headTag = git tag --points-at HEAD "v*.*.*" | Select-Object -First 1
+              if ($headTag) {
+                  $tag = $headTag
+                  $version = $tag.TrimStart('v')
+                  Write-Host "Reusing existing tag at HEAD: $tag"
+              } else {
+                  $latestTag = git tag -l "v*.*.*" --sort=-v:refname | Select-Object -First 1
+                  if (-not $latestTag) {
+                      $version = "1.0.0"
+                  } else {
+                      $cleanTag = $latestTag.TrimStart('v')
+                      $parts = $cleanTag.Split('.')
+                      $major = [int]$parts[0]
+                      $minor = [int]$parts[1]
+                      $patch = [int]$parts[2]
+
+                      $commits = git log "$latestTag..HEAD" --oneline
+                      if ($commits -match "BREAKING CHANGE" -or $commits -match "\b\w+(\(.*\))?!:") {
+                          $major++
+                          $minor = 0
+                          $patch = 0
+                      } elseif ($commits -match "feat(\(.*\))?:") {
+                          $minor++
+                          $patch = 0
+                      } else {
+                          $patch++
+                      }
+                      $version = "$major.$minor.$patch"
+                  }
+                  $tag = "v$version"
+              }
           }
 
           Write-Host "Target Version: $version"
@@ -130,17 +144,29 @@ jobs:
           Write-Host "Extracted Changelog:"
           Write-Host $changelog
 
-      - name: Publish Standalone (Self-Contained Single File)
+      - name: Publish Standalone x64 (Self-Contained Single File)
         shell: pwsh
         run: |
           $ver = "${{ steps.semver.outputs.VERSION }}"
           dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained true `
             -p:PublishSingleFile=true `
             -p:Version=$ver `
-            -o ./dist/standalone
+            -o ./dist/standalone-x64
 
-          Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone"
-          Compress-Archive -Path "./dist/standalone/*" -DestinationPath "./printman-v$ver-win-x64.zip" -Force
+          Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone-x64"
+          Compress-Archive -Path "./dist/standalone-x64/*" -DestinationPath "./printman-v$ver-win-x64.zip" -Force
+
+      - name: Publish Standalone ARM64 (Self-Contained Single File)
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.semver.outputs.VERSION }}"
+          dotnet publish src/Printman/Printman.csproj -c Release -r win-arm64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:Version=$ver `
+            -o ./dist/standalone-arm64
+
+          Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone-arm64"
+          Compress-Archive -Path "./dist/standalone-arm64/*" -DestinationPath "./printman-v$ver-win-arm64.zip" -Force
 
       - name: Publish Portable (Framework-Dependent)
         shell: pwsh
@@ -153,7 +179,7 @@ jobs:
           Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/portable"
           Compress-Archive -Path "./dist/portable/*" -DestinationPath "./printman-v$ver-win-x64-framework-dependent.zip" -Force
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (Draft)
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -171,24 +197,42 @@ jobs:
           ---
 
           ### Download Options
-          - **``printman-v$ver-win-x64.zip``** ⭐ **Recommended (Standalone)**:
-            Fully self-contained single executable. Includes the .NET runtime. Runs out of the box on Windows 10/11 with zero installation required.
+
+          #### Windows 10 & 11
+          - **``printman-v$ver-win-x64.zip``** ⭐ **Recommended (Standalone x64)**:
+            Single self-contained executable. Runs out of the box on 64-bit Windows with zero dependencies.
+          - **``printman-v$ver-win-arm64.zip``** (Standalone ARM64):
+            Single self-contained executable for ARM64 Windows PCs (Snapdragon X Elite / Copilot+ PCs).
           - **``printman-v$ver-win-x64-framework-dependent.zip``** (Lightweight):
             Smaller download for users and developers who already have the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) installed.
-          - **``printman-v$ver-linux-x64.tar.gz``**, **``linux-arm64``** (Raspberry Pi 3/4/5, 64-bit OS), **``linux-arm``** (Raspberry Pi 2/3/4, 32-bit OS):
-            Self-contained single executable. Prints through CUPS (``sudo apt install cups``).
-          - **``printman-v$ver-osx-arm64.tar.gz``** (Apple Silicon), **``osx-x64``** (Intel Mac):
-            Self-contained single executable using the built-in macOS printing system (CUPS).
+
+          #### Linux & Raspberry Pi
+          - **``printman-v$ver-linux-x64.tar.gz``** (Linux x86_64):
+            Single self-contained executable. Prints through CUPS (``sudo apt install cups``).
+          - **``printman-v$ver-linux-arm64.tar.gz``** (Raspberry Pi 3/4/5, 64-bit OS):
+            Single self-contained executable for 64-bit ARM Linux and Raspberry Pi OS.
+          - **``printman-v$ver-linux-arm.tar.gz``** (Raspberry Pi 2/3/4, 32-bit OS):
+            Single self-contained executable for 32-bit ARM Linux (ARMv7).
+
+          #### macOS
+          - **``printman-v$ver-osx-arm64.tar.gz``** (Apple Silicon):
+            Single self-contained executable for M1/M2/M3/M4 Macs using the built-in macOS printing system (CUPS).
+          - **``printman-v$ver-osx-x64.tar.gz``** (Intel Mac):
+            Single self-contained executable for Intel-based Macs.
+
+          #### Verification
+          - **``checksums.txt``**: SHA-256 hashes of all release packages.
           "@
 
           gh release create $tag `
-            "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone - Recommended)" `
+            "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 - Recommended)" `
+            "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64)" `
             "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
             --title "Printman $tag" `
             --notes $releaseNotes `
-            --generate-notes
+            --draft
 
-  # Linux / macOS builds are attached to the release created above. macOS archives are built on macOS so the
+  # Linux / macOS builds are attached to the draft release created above. macOS archives are built on macOS so the
   # SDK can ad-hoc sign the executable (Apple Silicon refuses to run unsigned binaries).
   unix:
     needs: release
@@ -226,3 +270,20 @@ jobs:
             tar -czf "printman-v$VERSION-$rid.tar.gz" -C "$out" .
             gh release upload "$TAG" "printman-v$VERSION-$rid.tar.gz" --clobber
           done
+
+  publish:
+    needs: [release, unix]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all release assets, generate checksums and publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          mkdir -p ./release_assets
+          cd ./release_assets
+          gh release download "$TAG" --pattern "*"
+          sha256sum printman-* > checksums.txt
+          cat checksums.txt
+          gh release upload "$TAG" checksums.txt --clobber
+          gh release edit "$TAG" --draft=false

@@ -100,24 +100,22 @@ git push origin release
 
 ## 5. What the Release Pipeline Executes
 
-Once pushed to `release`, GitHub Actions runs [`.github/workflows/release.yml`](../../.github/workflows/release.yml) on `windows-latest`:
+Once pushed to `release` (or manually triggered via `workflow_dispatch`), GitHub Actions runs [`.github/workflows/release.yml`](../../.github/workflows/release.yml):
 
-1. **Calculates Semantic Version & Git Tag:** Determines `$version` (e.g. `1.1.0`) and `$tag` (e.g. `v1.1.0`).
+1. **Calculates Semantic Version & Git Tag:** Determines `$version` (e.g. `2.0.0`) and `$tag` (e.g. `v2.0.0`), honoring any explicit `workflow_dispatch` input.
 2. **Extracts Curated Changelog:** Reads the corresponding section from `CHANGELOG.md`.
-3. **Builds Standalone Single-File Release:**
-   ```powershell
-   dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:Version=$version -o ./dist/standalone
-   ```
-   Compresses to `printman-v$version-win-x64.zip` (includes standalone `printman.exe`, `README.md`, `LICENSE`).
-4. **Builds Framework-Dependent Release:**
-   ```powershell
-   dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false -p:Version=$version -o ./dist/portable
-   ```
-   Compresses to `printman-v$version-win-x64-framework-dependent.zip`.
-5. **Creates GitHub Release:**
-   Uses `gh release create` to publish the release with both assets attached, the extracted changelog, download recommendations, and git commit history.
-6. **Attaches Linux / macOS Builds (`unix` job):**
-   After the release exists, `ubuntu-latest` publishes `linux-x64`, `linux-arm64` and `linux-arm`, and `macos-latest` publishes `osx-arm64` and `osx-x64` (on macOS so the executable is signed). Each is a self-contained single file packed as `printman-v$version-<rid>.tar.gz` and added with `gh release upload`.
+3. **Builds Windows Releases (on `windows-latest`):**
+   - **Standalone x64:** `printman-v$version-win-x64.zip`
+   - **Standalone ARM64:** `printman-v$version-win-arm64.zip`
+   - **Framework-Dependent:** `printman-v$version-win-x64-framework-dependent.zip`
+4. **Creates Draft GitHub Release:**
+   Creates the release with `--draft`, attaching the Windows assets and structured release notes.
+5. **Builds & Uploads Linux and macOS Archives (`unix` job):**
+   - `ubuntu-latest` builds `linux-x64`, `linux-arm64` (Raspberry Pi 3/4/5 64-bit), and `linux-arm` (Raspberry Pi 2/3/4 32-bit).
+   - `macos-latest` builds `osx-arm64` (Apple Silicon) and `osx-x64` (Intel Mac) with ad-hoc signing.
+   - Archives are compressed to `printman-v$version-<rid>.tar.gz` and uploaded via `gh release upload --clobber`.
+6. **Generates Checksums & Publishes Release (`publish` job):**
+   Downloads all 8 packages, generates SHA-256 `checksums.txt`, uploads it to the release, and flips the release from draft to public (`--draft=false`).
 
 ---
 
