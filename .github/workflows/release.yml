@@ -275,9 +275,13 @@ jobs:
     needs: [release, unix]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download all release assets, generate checksums and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.release.outputs.tag }}
         run: |
           mkdir -p ./release_assets
