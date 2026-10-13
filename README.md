@@ -124,17 +124,17 @@ For a device-by-device walkthrough, see the [AirPrint and Mopria sharing guide](
 
 Pre-built standalone binaries are available on [**GitHub Releases**](https://github.com/EslaMx7/printman/releases/latest):
 
-| Package | Target RID | Details |
-| :--- | :--- | :--- |
-| [**Windows Standalone (x64)**](https://github.com/EslaMx7/printman/releases/latest) ⭐ *(Recommended)* | `win-x64` | Single executable (~60 MB), runs with zero prerequisites |
-| [**Windows Standalone (ARM64)**](https://github.com/EslaMx7/printman/releases/latest) | `win-arm64` | Native single executable for Snapdragon X Elite & ARM64 Windows PCs |
-| [**Windows Portable ZIP**](https://github.com/EslaMx7/printman/releases/latest) | `win-x64` | Lightweight (~6 MB), requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) |
-| [**Linux (x86_64)**](https://github.com/EslaMx7/printman/releases/latest) | `linux-x64` | Single executable, prints through CUPS (no .NET required) |
-| [**Raspberry Pi / Linux (ARM64)**](https://github.com/EslaMx7/printman/releases/latest) | `linux-arm64` | Raspberry Pi 3/4/5 (64-bit OS), single executable |
-| [**Raspberry Pi / Linux (ARMv7)**](https://github.com/EslaMx7/printman/releases/latest) | `linux-arm` | Raspberry Pi 2/3/4 (32-bit OS), single executable |
-| [**macOS (Apple Silicon)**](https://github.com/EslaMx7/printman/releases/latest) | `osx-arm64` | Single executable for Apple Silicon (M1/M2/M3/M4) |
-| [**macOS (Intel)**](https://github.com/EslaMx7/printman/releases/latest) | `osx-x64` | Single executable for Intel-based Macs |
-| [**SHA-256 Checksums**](https://github.com/EslaMx7/printman/releases/latest) | `checksums.txt` | Cryptographic SHA-256 hashes for all release packages |
+| Platform | Direct Binary / Installer | Standalone Archive | Description |
+| :--- | :--- | :--- | :--- |
+| **Windows (x64)** ⭐ | [**`printman-v2.0.0-win-x64.exe`**](https://github.com/EslaMx7/printman/releases/latest) | [`.zip`](https://github.com/EslaMx7/printman/releases/latest) | Standalone single-file executable for 64-bit Windows |
+| **Windows (ARM64)** | [**`printman-v2.0.0-win-arm64.exe`**](https://github.com/EslaMx7/printman/releases/latest) | [`.zip`](https://github.com/EslaMx7/printman/releases/latest) | Snapdragon X Elite & Copilot+ ARM64 Windows PCs |
+| **Windows (Portable)** | — | [`.zip`](https://github.com/EslaMx7/printman/releases/latest) | Lightweight (~6 MB, requires .NET 10 Runtime) |
+| **macOS (Apple Silicon)** | [**`printman-v2.0.0-osx-arm64.dmg`**](https://github.com/EslaMx7/printman/releases/latest) / [binary](https://github.com/EslaMx7/printman/releases/latest) | [`.tar.gz`](https://github.com/EslaMx7/printman/releases/latest) | M1/M2/M3/M4 Macs |
+| **macOS (Intel)** | [**`printman-v2.0.0-osx-x64.dmg`**](https://github.com/EslaMx7/printman/releases/latest) / [binary](https://github.com/EslaMx7/printman/releases/latest) | [`.tar.gz`](https://github.com/EslaMx7/printman/releases/latest) | Intel-based Macs |
+| **Linux (x86_64)** | [**`printman-v2.0.0-linux-x64`**](https://github.com/EslaMx7/printman/releases/latest) | [`.tar.gz`](https://github.com/EslaMx7/printman/releases/latest) | Standalone Linux x86_64 binary |
+| **Raspberry Pi (ARM64)** | [**`printman-v2.0.0-linux-arm64`**](https://github.com/EslaMx7/printman/releases/latest) | [`.tar.gz`](https://github.com/EslaMx7/printman/releases/latest) | Raspberry Pi 3/4/5 (64-bit OS) |
+| **Raspberry Pi (ARMv7)** | [**`printman-v2.0.0-linux-arm`**](https://github.com/EslaMx7/printman/releases/latest) | [`.tar.gz`](https://github.com/EslaMx7/printman/releases/latest) | Raspberry Pi 2/3/4 (32-bit OS) |
+| **SHA-256 Hashes** | [**`checksums.txt`**](https://github.com/EslaMx7/printman/releases/latest) | — | Verification hashes for all packages |
 
 > **Quick Start (Windows):** Extract the ZIP and run `printman.exe` directly or from Windows Terminal.
 >

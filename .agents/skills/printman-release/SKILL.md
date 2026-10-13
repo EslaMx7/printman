@@ -105,17 +105,18 @@ Once pushed to `release` (or manually triggered via `workflow_dispatch`), GitHub
 1. **Calculates Semantic Version & Git Tag:** Determines `$version` (e.g. `2.0.0`) and `$tag` (e.g. `v2.0.0`), honoring any explicit `workflow_dispatch` input.
 2. **Extracts Curated Changelog:** Reads the corresponding section from `CHANGELOG.md`.
 3. **Builds Windows Releases (on `windows-latest`):**
-   - **Standalone x64:** `printman-v$version-win-x64.zip`
-   - **Standalone ARM64:** `printman-v$version-win-arm64.zip`
+   - **Direct Executables:** `printman-v$version-win-x64.exe`, `printman-v$version-win-arm64.exe`
+   - **Standalone Archives:** `printman-v$version-win-x64.zip`, `printman-v$version-win-arm64.zip`
    - **Framework-Dependent:** `printman-v$version-win-x64-framework-dependent.zip`
-4. **Creates Draft GitHub Release:**
-   Creates the release with `--draft`, attaching the Windows assets and structured release notes.
-5. **Builds & Uploads Linux and macOS Archives (`unix` job):**
-   - `ubuntu-latest` builds `linux-x64`, `linux-arm64` (Raspberry Pi 3/4/5 64-bit), and `linux-arm` (Raspberry Pi 2/3/4 32-bit).
-   - `macos-latest` builds `osx-arm64` (Apple Silicon) and `osx-x64` (Intel Mac) with ad-hoc signing.
-   - Archives are compressed to `printman-v$version-<rid>.tar.gz` and uploaded via `gh release upload --clobber`.
+4. **Creates or Updates Draft GitHub Release:**
+   Creates or updates the release with `--draft`, attaching the Windows binaries, archives and structured release notes.
+5. **Builds & Uploads Linux and macOS Packages (`unix` job):**
+   - **Direct Binaries:** `printman-v$version-linux-x64`, `linux-arm64`, `linux-arm`, `osx-arm64`, `osx-x64`.
+   - **macOS Disk Images (.dmg):** `printman-v$version-osx-arm64.dmg`, `printman-v$version-osx-x64.dmg` created via `hdiutil`.
+   - **Compressed Archives:** `printman-v$version-<rid>.tar.gz`.
+   - All assets uploaded with `gh release upload --clobber`.
 6. **Generates Checksums & Publishes Release (`publish` job):**
-   Downloads all 8 packages, generates SHA-256 `checksums.txt`, uploads it to the release, and flips the release from draft to public (`--draft=false`).
+   Downloads all packages, generates SHA-256 `checksums.txt` covering all binaries and archives, uploads it, and flips the release from draft to public (`--draft=false`).
 
 ---
 

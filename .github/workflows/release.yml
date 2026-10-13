@@ -153,6 +153,9 @@ jobs:
             -p:Version=$ver `
             -o ./dist/standalone-x64
 
+          # Direct standalone executable
+          Copy-Item "./dist/standalone-x64/printman.exe" -Destination "./printman-v$ver-win-x64.exe"
+
           Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone-x64"
           Compress-Archive -Path "./dist/standalone-x64/*" -DestinationPath "./printman-v$ver-win-x64.zip" -Force
 
@@ -164,6 +167,9 @@ jobs:
             -p:PublishSingleFile=true `
             -p:Version=$ver `
             -o ./dist/standalone-arm64
+
+          # Direct standalone executable
+          Copy-Item "./dist/standalone-arm64/printman.exe" -Destination "./printman-v$ver-win-arm64.exe"
 
           Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone-arm64"
           Compress-Archive -Path "./dist/standalone-arm64/*" -DestinationPath "./printman-v$ver-win-arm64.zip" -Force
@@ -199,30 +205,25 @@ jobs:
 
           ### Download Options
 
-          #### Windows 10 & 11
-          - **``printman-v$ver-win-x64.zip``** ⭐ **Recommended (Standalone x64)**:
-            Single self-contained executable. Runs out of the box on 64-bit Windows with zero dependencies.
-          - **``printman-v$ver-win-arm64.zip``** (Standalone ARM64):
-            Single self-contained executable for ARM64 Windows PCs (Snapdragon X Elite / Copilot+ PCs).
-          - **``printman-v$ver-win-x64-framework-dependent.zip``** (Lightweight):
-            Smaller download for users and developers who already have the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download) installed.
+          #### Direct Executables & Disk Images
+          - **``printman-v$ver-win-x64.exe``** ⭐: Standalone 64-bit Windows executable (no extraction needed).
+          - **``printman-v$ver-win-arm64.exe``**: Standalone ARM64 Windows executable (Snapdragon X Elite / Copilot+ PCs).
+          - **``printman-v$ver-osx-arm64.dmg``** 🍏: Mountable Apple Silicon macOS disk image.
+          - **``printman-v$ver-osx-x64.dmg``**: Mountable Intel macOS disk image.
+          - **``printman-v$ver-linux-x64``** 🐧: Standalone Linux x86_64 binary.
+          - **``printman-v$ver-linux-arm64``** (Raspberry Pi 64-bit) / **``linux-arm``** (Raspberry Pi 32-bit): Standalone ARM Linux binary.
+          - **``printman-v$ver-osx-arm64``** / **``osx-x64``**: Standalone macOS binary.
 
-          #### Linux & Raspberry Pi
-          - **``printman-v$ver-linux-x64.tar.gz``** (Linux x86_64):
-            Single self-contained executable. Prints through CUPS (``sudo apt install cups``).
-          - **``printman-v$ver-linux-arm64.tar.gz``** (Raspberry Pi 3/4/5, 64-bit OS):
-            Single self-contained executable for 64-bit ARM Linux and Raspberry Pi OS.
-          - **``printman-v$ver-linux-arm.tar.gz``** (Raspberry Pi 2/3/4, 32-bit OS):
-            Single self-contained executable for 32-bit ARM Linux (ARMv7).
+          #### Standalone Compressed Archives (ZIP / tar.gz)
+          - Windows: **``printman-v$ver-win-x64.zip``**, **``printman-v$ver-win-arm64.zip``**
+          - Linux / Raspberry Pi: **``printman-v$ver-linux-x64.tar.gz``**, **``linux-arm64.tar.gz``**, **``linux-arm.tar.gz``**
+          - macOS: **``printman-v$ver-osx-arm64.tar.gz``**, **``osx-x64.tar.gz``**
 
-          #### macOS
-          - **``printman-v$ver-osx-arm64.tar.gz``** (Apple Silicon):
-            Single self-contained executable for M1/M2/M3/M4 Macs using the built-in macOS printing system (CUPS).
-          - **``printman-v$ver-osx-x64.tar.gz``** (Intel Mac):
-            Single self-contained executable for Intel-based Macs.
+          #### Portable (Framework-Dependent)
+          - Windows: **``printman-v$ver-win-x64-framework-dependent.zip``** (requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download))
 
           #### Verification
-          - **``checksums.txt``**: SHA-256 hashes of all release packages.
+          - **``checksums.txt``**: SHA-256 hashes of all release packages and binaries.
           "@
 
           $releaseExists = $false
@@ -239,15 +240,19 @@ jobs:
               Write-Host "Release $tag already exists. Updating notes and uploading Windows assets with --clobber..."
               gh release edit $tag --title "Printman $tag" --notes $releaseNotes
               gh release upload $tag `
-                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 - Recommended)" `
-                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64)" `
+                "./printman-v$ver-win-x64.exe#printman-v$ver-win-x64.exe (Standalone Executable)" `
+                "./printman-v$ver-win-arm64.exe#printman-v$ver-win-arm64.exe (Standalone ARM64 Executable)" `
+                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 ZIP - Recommended)" `
+                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64 ZIP)" `
                 "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
                 --clobber
           } else {
               Write-Host "Creating draft release $tag..."
               gh release create $tag `
-                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 - Recommended)" `
-                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64)" `
+                "./printman-v$ver-win-x64.exe#printman-v$ver-win-x64.exe (Standalone Executable)" `
+                "./printman-v$ver-win-arm64.exe#printman-v$ver-win-arm64.exe (Standalone ARM64 Executable)" `
+                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 ZIP - Recommended)" `
+                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64 ZIP)" `
                 "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
                 --title "Printman $tag" `
                 --notes $releaseNotes `
@@ -263,8 +268,10 @@ jobs:
         include:
           - os: ubuntu-latest
             rids: linux-x64 linux-arm64 linux-arm
+            is_mac: false
           - os: macos-latest
             rids: osx-arm64 osx-x64
+            is_mac: true
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -289,6 +296,22 @@ jobs:
               -p:PublishSingleFile=true -p:Version="$VERSION" -o "$out"
             rm -f "$out"/*.pdb
             chmod +x "$out/printman"
+
+            # 1. Direct standalone binary
+            cp "$out/printman" "printman-v$VERSION-$rid"
+            gh release upload "$TAG" "printman-v$VERSION-$rid" --clobber
+
+            # 2. If macOS, also build mountable .dmg
+            if [ "${{ matrix.is_mac }}" = "true" ]; then
+              dmg_dir="./dmg_$rid"
+              mkdir -p "$dmg_dir"
+              cp "$out/printman" README.md LICENSE "$dmg_dir/"
+              hdiutil create -volname "Printman" -srcfolder "$dmg_dir" -ov -format UDZO "printman-v$VERSION-$rid.dmg"
+              gh release upload "$TAG" "printman-v$VERSION-$rid.dmg" --clobber
+              rm -rf "$dmg_dir"
+            fi
+
+            # 3. Compressed archive
             cp README.md LICENSE "$out/"
             tar -czf "printman-v$VERSION-$rid.tar.gz" -C "$out" .
             gh release upload "$TAG" "printman-v$VERSION-$rid.tar.gz" --clobber
@@ -310,6 +333,7 @@ jobs:
           mkdir -p ./release_assets
           cd ./release_assets
           gh release download "$TAG" --pattern "*"
+          rm -f checksums.txt
           sha256sum printman-* > checksums.txt
           cat checksums.txt
           gh release upload "$TAG" checksums.txt --clobber
