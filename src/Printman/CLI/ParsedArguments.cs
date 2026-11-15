@@ -23,6 +23,7 @@ public class ParsedArguments
     public bool RequireAuth { get; set; } = true;
     public int MaxUploadMb { get; set; } = 50;
     public int CacheLimitMb { get; set; } = 500;
+    public bool KeepCache { get; set; } = false;
     public string? ServerOutputDirectory { get; set; }
     public bool SharePrinters { get; set; } = false;
     public List<string> SharedPrinterNames { get; set; } = [];
@@ -44,6 +45,7 @@ public class ParsedArguments
         RequireAuth = RequireAuth,
         MaxUploadMb = MaxUploadMb,
         CacheLimitMb = CacheLimitMb,
+        KeepCache = KeepCache,
         OutputDirectory = ServerOutputDirectory,
         EnableWebUi = EnableWebUi,
         Share = new ShareOptions

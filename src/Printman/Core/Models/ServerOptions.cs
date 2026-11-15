@@ -13,6 +13,12 @@ public sealed record ServerOptions
     public int CacheLimitMb { get; init; } = 500;
 
     /// <summary>
+    /// When false (default), cached files are deleted after printing and on server startup/shutdown.
+    /// Set to true (--keep-cache) to retain cached uploads across print jobs for deduplication.
+    /// </summary>
+    public bool KeepCache { get; init; }
+
+    /// <summary>
     /// Optional directory where every server print job is written as a file (Print-to-File).
     /// Intended for headless testing against virtual printers (Microsoft Print to PDF / XPS).
     /// </summary>

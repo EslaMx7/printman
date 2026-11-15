@@ -147,6 +147,10 @@ public static class CommandLineParser
                         }
                         break;
 
+                    case "--keep-cache" or "-keep-cache":
+                        result.KeepCache = true;
+                        break;
+
                     case "--share" or "-share":
                         // Optional value: "--share" alone shares the default printer; repeat to share several
                         result.SharePrinters = true;

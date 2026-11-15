@@ -20,18 +20,23 @@ public class PrintJobPipeline(
     private readonly IPrintQueueService _queueService = queueService;
 
     private readonly Channel<PipelineTicket> _queue = Channel.CreateUnbounded<PipelineTicket>();
+    private readonly Dictionary<string, int> _queuedFileRefs = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _fileRefSync = new();
     private int _pendingCount;
 
     public int PendingCount => Volatile.Read(ref _pendingCount);
     public string? OutputDirectory { get; set; }
+    public bool DeleteAfterPrint { get; set; } = true;
 
     public PipelineTicket Enqueue(PipelineBatch batch)
     {
         var ticket = new PipelineTicket(batch);
+        TrackBatchFiles(batch);
         Interlocked.Increment(ref _pendingCount);
         if (!_queue.Writer.TryWrite(ticket))
         {
             Interlocked.Decrement(ref _pendingCount);
+            ReleaseBatchFiles(batch, deleteIfUnused: false);
             ticket.Finish(PipelineJobState.Failed, "Print queue is not accepting jobs.");
         }
         return ticket;
@@ -67,6 +72,7 @@ public class PrintJobPipeline(
             while (_queue.Reader.TryRead(out var leftover))
             {
                 Interlocked.Decrement(ref _pendingCount);
+                ReleaseBatchFiles(leftover.Batch, deleteIfUnused: DeleteAfterPrint);
                 leftover.Finish(PipelineJobState.Canceled, "Server stopped.");
             }
         }
@@ -75,199 +81,260 @@ public class PrintJobPipeline(
     private async Task ProcessBatchAsync(PipelineTicket ticket, CancellationToken ct)
     {
         var batch = ticket.Batch;
+        int nextUnreleasedIndex = 0;
 
-        if (ticket.CancellationToken.IsCancellationRequested)
+        try
         {
-            ticket.Finish(PipelineJobState.Canceled, "Canceled before printing started.");
-            return;
-        }
+            if (ticket.CancellationToken.IsCancellationRequested)
+            {
+                ticket.Finish(PipelineJobState.Canceled, "Canceled before printing started.");
+                return;
+            }
 
-        var targetPrinterName = batch.Printer;
-        var printer = !string.IsNullOrWhiteSpace(targetPrinterName)
-            ? _printerDiscovery.FindPrinter(targetPrinterName)
-            : _printerDiscovery.GetDefaultPrinter();
+            var targetPrinterName = batch.Printer;
+            var printer = !string.IsNullOrWhiteSpace(targetPrinterName)
+                ? _printerDiscovery.FindPrinter(targetPrinterName)
+                : _printerDiscovery.GetDefaultPrinter();
 
-        if (printer == null)
-        {
+            if (printer == null)
+            {
+                _eventHub.Publish(new PrintEvent
+                {
+                    Type = "error",
+                    Message = $"Target printer '{targetPrinterName}' could not be resolved."
+                });
+                ticket.Finish(PipelineJobState.Failed, "Target printer could not be resolved.");
+                return;
+            }
+
+            ticket.MarkProcessing();
             _eventHub.Publish(new PrintEvent
             {
-                Type = "error",
-                Message = $"Target printer '{targetPrinterName}' could not be resolved."
+                Type = "queued",
+                Printer = printer.Name,
+                Message = $"Starting print queue ({batch.Items.Count} document(s)) on '{printer.Name}'..."
             });
-            ticket.Finish(PipelineJobState.Failed, "Target printer could not be resolved.");
-            return;
+
+            using var batchCts = CancellationTokenSource.CreateLinkedTokenSource(ct, ticket.CancellationToken);
+            bool anyFailed = false;
+            string? lastError = null;
+
+            for (int itemIndex = 1; itemIndex <= batch.Items.Count; itemIndex++)
+            {
+                if (batchCts.IsCancellationRequested) break;
+
+                var item = batch.Items[itemIndex - 1];
+                try
+                {
+                    var cachedFile = _fileCache.GetFile(item.FileId);
+                    if (cachedFile == null)
+                    {
+                        _eventHub.Publish(new PrintEvent
+                        {
+                            Type = "error",
+                            Message = $"File ID '{item.FileId}' not found in cache. Skipping."
+                        });
+                        anyFailed = true;
+                        lastError = "Document not found in cache.";
+                        continue;
+                    }
+
+                    var displayName = item.DisplayName ?? cachedFile.OriginalFileName;
+
+                    var printRequest = new PrintJobRequest
+                    {
+                        FilePath = cachedFile.CachedFilePath,
+                        TargetPrinterName = printer.Name,
+                        PageRange = item.PageRange,
+                        PaperSizeName = item.PaperSizeName,
+                        Copies = Math.Max(1, item.Copies),
+                        Orientation = item.Orientation,
+                        Duplex = item.Duplex,
+                        ColorMode = item.ColorMode,
+                        FitToPage = item.FitToPage,
+                        FullPage = item.FullPage,
+                        JobTitle = item.JobTitle ?? displayName,
+                        OutputFilePath = BuildOutputFilePath(printer.Name, displayName)
+                    };
+
+                    int totalPages = 1;
+                    try
+                    {
+                        var renderer = _rendererResolver.Resolve(cachedFile.CachedFilePath);
+                        totalPages = await renderer.GetPageCountAsync(cachedFile.CachedFilePath);
+                    }
+                    catch { }
+
+                    var pipelineId = Guid.NewGuid().ToString("N")[..8];
+                    using var itemCts = CancellationTokenSource.CreateLinkedTokenSource(batchCts.Token);
+                    _queueService.RegisterPipelineJob(pipelineId, printer.Name, displayName, totalPages, itemCts);
+
+                    _eventHub.Publish(new PrintEvent
+                    {
+                        Type = "queue_updated",
+                        Printer = printer.Name,
+                        Message = $"Job '{displayName}' entered queue."
+                    });
+
+                    var progress = new Progress<string>(msg =>
+                    {
+                        _queueService.UpdatePipelineJob(pipelineId, itemIndex, PrintJobStatusCode.Spooling, msg);
+                        _eventHub.Publish(new PrintEvent
+                        {
+                            Type = "progress",
+                            FileName = displayName,
+                            Printer = printer.Name,
+                            Message = $"[{displayName}] {msg}"
+                        });
+                    });
+
+                    _eventHub.Publish(new PrintEvent
+                    {
+                        Type = "progress",
+                        FileName = displayName,
+                        Printer = printer.Name,
+                        Message = $"Processing document {itemIndex}/{batch.Items.Count}: '{displayName}'"
+                    });
+
+                    try
+                    {
+                        var result = await _printService.PrintAsync(printRequest, progress, itemCts.Token);
+
+                        if (result.Success)
+                        {
+                            ticket.AddPagesPrinted(result.PagesPrinted);
+                            _eventHub.Publish(new PrintEvent
+                            {
+                                Type = "completed",
+                                FileName = displayName,
+                                Printer = printer.Name,
+                                PagesPrinted = result.PagesPrinted,
+                                Message = $"Successfully spooled '{displayName}' ({result.PagesPrinted} page(s), {result.CopiesPrinted} copy/copies)."
+                            });
+                        }
+                        else
+                        {
+                            anyFailed = true;
+                            lastError = result.ErrorMessage;
+                            _eventHub.Publish(new PrintEvent
+                            {
+                                Type = "error",
+                                FileName = displayName,
+                                Printer = printer.Name,
+                                Message = $"Printing '{displayName}' failed: {result.ErrorMessage}"
+                            });
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _eventHub.Publish(new PrintEvent
+                        {
+                            Type = "error",
+                            FileName = displayName,
+                            Printer = printer.Name,
+                            Message = $"Printing of '{displayName}' was cancelled by user."
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        anyFailed = true;
+                        lastError = ex.Message;
+                        _eventHub.Publish(new PrintEvent
+                        {
+                            Type = "error",
+                            FileName = displayName,
+                            Printer = printer.Name,
+                            Message = $"Unexpected printing exception for '{displayName}': {ex.Message}"
+                        });
+                    }
+                    finally
+                    {
+                        _queueService.UnregisterPipelineJob(pipelineId);
+                        _eventHub.Publish(new PrintEvent
+                        {
+                            Type = "queue_updated",
+                            Printer = printer.Name,
+                            Message = $"Queue updated."
+                        });
+                    }
+                }
+                finally
+                {
+                    nextUnreleasedIndex = itemIndex;
+                    ReleaseFileRef(item.FileId, deleteIfUnused: DeleteAfterPrint);
+                }
+            }
+
+            if (batchCts.IsCancellationRequested)
+            {
+                ticket.Finish(PipelineJobState.Canceled, "Canceled.");
+            }
+            else if (anyFailed)
+            {
+                ticket.Finish(PipelineJobState.Failed, lastError);
+            }
+            else
+            {
+                ticket.Finish(PipelineJobState.Completed);
+            }
+
+            _eventHub.Publish(new PrintEvent
+            {
+                Type = "completed",
+                Printer = printer.Name,
+                Message = $"All {batch.Items.Count} document(s) in queue processed on '{printer.Name}'."
+            });
         }
-
-        ticket.MarkProcessing();
-        _eventHub.Publish(new PrintEvent
+        finally
         {
-            Type = "queued",
-            Printer = printer.Name,
-            Message = $"Starting print queue ({batch.Items.Count} document(s)) on '{printer.Name}'..."
-        });
+            for (int i = nextUnreleasedIndex; i < batch.Items.Count; i++)
+            {
+                ReleaseFileRef(batch.Items[i].FileId, deleteIfUnused: DeleteAfterPrint);
+            }
+        }
+    }
 
-        using var batchCts = CancellationTokenSource.CreateLinkedTokenSource(ct, ticket.CancellationToken);
-        bool anyFailed = false;
-        string? lastError = null;
+    private void TrackBatchFiles(PipelineBatch batch)
+    {
+        lock (_fileRefSync)
+        {
+            foreach (var item in batch.Items)
+            {
+                _queuedFileRefs[item.FileId] = _queuedFileRefs.GetValueOrDefault(item.FileId) + 1;
+            }
+        }
+    }
 
-        int itemIndex = 0;
+    private void ReleaseBatchFiles(PipelineBatch batch, bool deleteIfUnused)
+    {
         foreach (var item in batch.Items)
         {
-            if (batchCts.IsCancellationRequested) break;
-            itemIndex++;
+            ReleaseFileRef(item.FileId, deleteIfUnused);
+        }
+    }
 
-            var cachedFile = _fileCache.GetFile(item.FileId);
-            if (cachedFile == null)
+    private void ReleaseFileRef(string fileId, bool deleteIfUnused)
+    {
+        bool shouldDelete;
+        lock (_fileRefSync)
+        {
+            int count = _queuedFileRefs.GetValueOrDefault(fileId);
+            if (count <= 1)
             {
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "error",
-                    Message = $"File ID '{item.FileId}' not found in cache. Skipping."
-                });
-                anyFailed = true;
-                lastError = "Document not found in cache.";
-                continue;
+                _queuedFileRefs.Remove(fileId);
+                shouldDelete = deleteIfUnused;
             }
-
-            var displayName = item.DisplayName ?? cachedFile.OriginalFileName;
-
-            var printRequest = new PrintJobRequest
+            else
             {
-                FilePath = cachedFile.CachedFilePath,
-                TargetPrinterName = printer.Name,
-                PageRange = item.PageRange,
-                PaperSizeName = item.PaperSizeName,
-                Copies = Math.Max(1, item.Copies),
-                Orientation = item.Orientation,
-                Duplex = item.Duplex,
-                ColorMode = item.ColorMode,
-                FitToPage = item.FitToPage,
-                FullPage = item.FullPage,
-                JobTitle = item.JobTitle ?? displayName,
-                OutputFilePath = BuildOutputFilePath(printer.Name, displayName)
-            };
-
-            int totalPages = 1;
-            try
-            {
-                var renderer = _rendererResolver.Resolve(cachedFile.CachedFilePath);
-                totalPages = await renderer.GetPageCountAsync(cachedFile.CachedFilePath);
-            }
-            catch { }
-
-            var pipelineId = Guid.NewGuid().ToString("N")[..8];
-            using var itemCts = CancellationTokenSource.CreateLinkedTokenSource(batchCts.Token);
-            _queueService.RegisterPipelineJob(pipelineId, printer.Name, displayName, totalPages, itemCts);
-
-            _eventHub.Publish(new PrintEvent
-            {
-                Type = "queue_updated",
-                Printer = printer.Name,
-                Message = $"Job '{displayName}' entered queue."
-            });
-
-            var progress = new Progress<string>(msg =>
-            {
-                _queueService.UpdatePipelineJob(pipelineId, itemIndex, PrintJobStatusCode.Spooling, msg);
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "progress",
-                    FileName = displayName,
-                    Printer = printer.Name,
-                    Message = $"[{displayName}] {msg}"
-                });
-            });
-
-            _eventHub.Publish(new PrintEvent
-            {
-                Type = "progress",
-                FileName = displayName,
-                Printer = printer.Name,
-                Message = $"Processing document {itemIndex}/{batch.Items.Count}: '{displayName}'"
-            });
-
-            try
-            {
-                var result = await _printService.PrintAsync(printRequest, progress, itemCts.Token);
-
-                if (result.Success)
-                {
-                    ticket.AddPagesPrinted(result.PagesPrinted);
-                    _eventHub.Publish(new PrintEvent
-                    {
-                        Type = "completed",
-                        FileName = displayName,
-                        Printer = printer.Name,
-                        PagesPrinted = result.PagesPrinted,
-                        Message = $"Successfully spooled '{displayName}' ({result.PagesPrinted} page(s), {result.CopiesPrinted} copy/copies)."
-                    });
-                }
-                else
-                {
-                    anyFailed = true;
-                    lastError = result.ErrorMessage;
-                    _eventHub.Publish(new PrintEvent
-                    {
-                        Type = "error",
-                        FileName = displayName,
-                        Printer = printer.Name,
-                        Message = $"Printing '{displayName}' failed: {result.ErrorMessage}"
-                    });
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "error",
-                    FileName = displayName,
-                    Printer = printer.Name,
-                    Message = $"Printing of '{displayName}' was cancelled by user."
-                });
-            }
-            catch (Exception ex)
-            {
-                anyFailed = true;
-                lastError = ex.Message;
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "error",
-                    FileName = displayName,
-                    Printer = printer.Name,
-                    Message = $"Unexpected printing exception for '{displayName}': {ex.Message}"
-                });
-            }
-            finally
-            {
-                _queueService.UnregisterPipelineJob(pipelineId);
-                _eventHub.Publish(new PrintEvent
-                {
-                    Type = "queue_updated",
-                    Printer = printer.Name,
-                    Message = $"Queue updated."
-                });
+                _queuedFileRefs[fileId] = count - 1;
+                shouldDelete = false;
             }
         }
 
-        if (batchCts.IsCancellationRequested)
+        if (shouldDelete)
         {
-            ticket.Finish(PipelineJobState.Canceled, "Canceled.");
+            _fileCache.DeleteFile(fileId);
         }
-        else if (anyFailed)
-        {
-            ticket.Finish(PipelineJobState.Failed, lastError);
-        }
-        else
-        {
-            ticket.Finish(PipelineJobState.Completed);
-        }
-
-        _eventHub.Publish(new PrintEvent
-        {
-            Type = "completed",
-            Printer = printer.Name,
-            Message = $"All {batch.Items.Count} document(s) in queue processed on '{printer.Name}'."
-        });
     }
 
     private string? BuildOutputFilePath(string printerName, string displayName)

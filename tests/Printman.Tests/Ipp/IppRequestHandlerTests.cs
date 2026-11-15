@@ -1506,6 +1506,7 @@ public sealed class IppRequestHandlerTests
         public string CacheDirectory => "throwing-cache";
         public long MaxFileSizeBytes { get; set; } = long.MaxValue;
         public long MaxCacheSizeBytes { get; set; } = long.MaxValue;
+        public bool Deduplicate { get; set; } = true;
 
         public Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, CancellationToken ct = default) =>
             throw exception;
@@ -1514,6 +1515,10 @@ public sealed class IppRequestHandlerTests
             throw exception;
 
         public FileCacheResult? GetFile(string fileId) => null;
+
+        public bool DeleteFile(string fileId) => false;
+
+        public void ClearCache() { }
 
         public Task CleanupOldFilesAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
@@ -1572,6 +1577,7 @@ public sealed class IppRequestHandlerTests
         public string CacheDirectory => "probe-cache";
         public long MaxFileSizeBytes { get; set; } = long.MaxValue;
         public long MaxCacheSizeBytes { get; set; } = long.MaxValue;
+        public bool Deduplicate { get; set; } = true;
 
         public Task<FileCacheResult> StoreFileAsync(string originalFileName, Stream contentStream, CancellationToken ct = default) =>
             StoreFileAsync(originalFileName, contentStream, MaxFileSizeBytes, ct);
@@ -1613,6 +1619,10 @@ public sealed class IppRequestHandlerTests
         }
 
         public FileCacheResult? GetFile(string fileId) => null;
+
+        public bool DeleteFile(string fileId) => false;
+
+        public void ClearCache() { }
 
         public Task CleanupOldFilesAsync(CancellationToken ct = default) => Task.CompletedTask;
 
