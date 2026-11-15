@@ -364,6 +364,162 @@ public sealed class PrintJobPipelineTests
 
         Assert.AreEqual("register failed", ticket!.Message);
         Assert.AreEqual(0, fx.PrintService.Requests.Count);
+        Assert.IsFalse(File.Exists(cached.CachedFilePath));
+    }
+
+    [TestMethod]
+    public async Task ProcessBatch_DeleteAfterPrintDefault_DeletesCachedFileAfterCompletion()
+    {
+        using var fx = new PipelineFixture();
+        Assert.IsTrue(fx.Pipeline.DeleteAfterPrint);
+        var cached = await fx.CacheFileAsync();
+
+        await RunWorkerAsync(fx.Pipeline, async () =>
+        {
+            var ticket = fx.Pipeline.Enqueue(TestData.Batch("Fake Printer", TestData.Item(cached.FileId)));
+            Assert.AreEqual(PipelineJobState.Completed, await ticket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+
+        Assert.IsFalse(File.Exists(cached.CachedFilePath));
+        Assert.IsNull(fx.Cache.GetFile(cached.FileId));
+    }
+
+    [TestMethod]
+    public async Task ProcessBatch_DeleteAfterPrintFalse_RetainsCachedFile()
+    {
+        using var fx = new PipelineFixture();
+        fx.Pipeline.DeleteAfterPrint = false;
+        var cached = await fx.CacheFileAsync();
+
+        await RunWorkerAsync(fx.Pipeline, async () =>
+        {
+            var ticket = fx.Pipeline.Enqueue(TestData.Batch("Fake Printer", TestData.Item(cached.FileId)));
+            Assert.AreEqual(PipelineJobState.Completed, await ticket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+
+        Assert.IsTrue(File.Exists(cached.CachedFilePath));
+        Assert.IsNotNull(fx.Cache.GetFile(cached.FileId));
+    }
+
+    [TestMethod]
+    public async Task ProcessBatch_SharedFileAcrossConcurrentBatches_DeletesOnlyAfterLastBatchCompletes()
+    {
+        using var fx = new PipelineFixture();
+        var cached = await fx.CacheFileAsync();
+
+        var firstTicket = fx.Pipeline.Enqueue(TestData.Batch("Fake Printer", TestData.Item(cached.FileId)));
+        var secondTicket = fx.Pipeline.Enqueue(TestData.Batch("Fake Printer", TestData.Item(cached.FileId)));
+
+        bool existedWhenSecondBatchPrinted = false;
+        fx.PrintService.OnPrint = _ =>
+        {
+            if (fx.PrintService.Requests.Count == 2)
+            {
+                existedWhenSecondBatchPrinted = File.Exists(cached.CachedFilePath);
+            }
+        };
+
+        await RunWorkerAsync(fx.Pipeline, async () =>
+        {
+            Assert.AreEqual(PipelineJobState.Completed, await firstTicket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.AreEqual(PipelineJobState.Completed, await secondTicket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+
+        Assert.IsTrue(existedWhenSecondBatchPrinted);
+        Assert.AreEqual(2, fx.PrintService.Requests.Count);
+        Assert.IsFalse(File.Exists(cached.CachedFilePath));
+    }
+
+    [TestMethod]
+    public async Task ProcessBatch_DuplicateFileInSameBatch_DeletesOnlyAfterLastItem()
+    {
+        using var fx = new PipelineFixture();
+        var cached = await fx.CacheFileAsync();
+
+        await RunWorkerAsync(fx.Pipeline, async () =>
+        {
+            var ticket = fx.Pipeline.Enqueue(TestData.Batch(
+                "Fake Printer",
+                TestData.Item(cached.FileId),
+                TestData.Item(cached.FileId)));
+            Assert.AreEqual(PipelineJobState.Completed, await ticket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+
+        Assert.AreEqual(2, fx.PrintService.Requests.Count);
+        Assert.IsFalse(File.Exists(cached.CachedFilePath));
+    }
+
+    [TestMethod]
+    public async Task ProcessBatch_PrintFails_StillDeletesCachedFile()
+    {
+        using var fx = new PipelineFixture();
+        var cached = await fx.CacheFileAsync();
+        fx.PrintService.Result = PrintJobResult.Failed("Fake Printer", "paper jam");
+
+        await RunWorkerAsync(fx.Pipeline, async () =>
+        {
+            var ticket = fx.Pipeline.Enqueue(TestData.Batch("Fake Printer", TestData.Item(cached.FileId)));
+            Assert.AreEqual(PipelineJobState.Failed, await ticket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+
+        Assert.IsFalse(File.Exists(cached.CachedFilePath));
+    }
+
+    [TestMethod]
+    public async Task ProcessBatch_PreCanceledAndUnknownPrinter_DeleteCachedFile()
+    {
+        using var fx = new PipelineFixture();
+        var canceledFile = await fx.CacheFileAsync("c.pdf", "canceled");
+        var missingPrinterFile = await fx.CacheFileAsync("m.pdf", "missing-printer");
+
+        var canceledTicket = fx.Pipeline.Enqueue(TestData.Batch("Fake Printer", TestData.Item(canceledFile.FileId)));
+        canceledTicket.Cancel();
+        var failedTicket = fx.Pipeline.Enqueue(TestData.Batch("No Such Printer", TestData.Item(missingPrinterFile.FileId)));
+
+        await RunWorkerAsync(fx.Pipeline, async () =>
+        {
+            Assert.AreEqual(PipelineJobState.Canceled, await canceledTicket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.AreEqual(PipelineJobState.Failed, await failedTicket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+
+        Assert.IsFalse(File.Exists(canceledFile.CachedFilePath));
+        Assert.IsFalse(File.Exists(missingPrinterFile.CachedFilePath));
+    }
+
+    [TestMethod]
+    public async Task ProcessBatch_CanceledMidBatch_DeletesRemainingCachedFiles()
+    {
+        using var fx = new PipelineFixture();
+        var first = await fx.CacheFileAsync("first.pdf", "first");
+        var second = await fx.CacheFileAsync("second.pdf", "second");
+
+        PipelineTicket? ticket = null;
+        fx.PrintService.OnPrint = _ => ticket!.Cancel();
+
+        await RunWorkerAsync(fx.Pipeline, async () =>
+        {
+            ticket = fx.Pipeline.Enqueue(TestData.Batch(
+                "Fake Printer",
+                TestData.Item(first.FileId),
+                TestData.Item(second.FileId)));
+            Assert.AreEqual(PipelineJobState.Canceled, await ticket.Completion.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+
+        Assert.IsFalse(File.Exists(first.CachedFilePath));
+        Assert.IsFalse(File.Exists(second.CachedFilePath));
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AlreadyCanceled_DeletesQueuedCachedFiles()
+    {
+        using var fx = new PipelineFixture();
+        var cached = await fx.CacheFileAsync();
+        var ticket = fx.Pipeline.Enqueue(TestData.Batch("Fake Printer", TestData.Item(cached.FileId)));
+
+        await fx.Pipeline.RunAsync(new CancellationToken(canceled: true)).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.AreEqual(PipelineJobState.Canceled, ticket.State);
+        Assert.IsFalse(File.Exists(cached.CachedFilePath));
     }
 
     private static async Task RunWorkerAsync(PrintJobPipeline pipeline, Func<Task> body)

@@ -77,9 +77,16 @@ public class PrintingWebServerHost(
         // 1. Configure storage bounds and quotas (sec-02)
         _fileCache.MaxFileSizeBytes = maxUploadMb * 1024L * 1024L;
         _fileCache.MaxCacheSizeBytes = options.CacheLimitMb * 1024L * 1024L;
+        _fileCache.Deduplicate = options.KeepCache;
+        _pipeline.DeleteAfterPrint = !options.KeepCache;
         _pipeline.OutputDirectory = string.IsNullOrWhiteSpace(options.OutputDirectory)
             ? null
             : Path.GetFullPath(options.OutputDirectory);
+
+        if (!options.KeepCache)
+        {
+            _fileCache.ClearCache();
+        }
 
         // 2. Resolve pairing PIN (sec-01)
         if (requireAuth && string.IsNullOrWhiteSpace(pin))
@@ -165,7 +172,7 @@ public class PrintingWebServerHost(
 
         // 3. Serialized Print Queue (sec-06)
         using var queueCts = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
-        _ = Task.Run(() => _pipeline.RunAsync(queueCts.Token), ct);
+        var pipelineTask = Task.Run(() => _pipeline.RunAsync(queueCts.Token), ct);
 
         // 4. Background Spooler Queue Observer (feeds the web UI's live queue)
         _ = Task.Run(async () =>
@@ -733,10 +740,16 @@ public class PrintingWebServerHost(
         finally
         {
             Console.CancelKeyPress -= cancelHandler;
+            queueCts.Cancel();
+            try { await pipelineTask.WaitAsync(TimeSpan.FromSeconds(2)); } catch { }
             if (advertising)
             {
                 // Goodbye packets remove the printers from devices' lists right away
                 try { await _advertiser.StopAsync(); } catch { }
+            }
+            if (!options.KeepCache)
+            {
+                _fileCache.ClearCache();
             }
         }
     }

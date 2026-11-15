@@ -1,4 +1,4 @@
-﻿using Printman.Core.Models;
+using Printman.Core.Models;
 
 namespace Printman.Core.Abstractions;
 
@@ -35,6 +35,22 @@ public interface IFileCacheService
     /// Maximum allowed total cache size in bytes (default 500 MB).
     /// </summary>
     long MaxCacheSizeBytes { get; set; }
+
+    /// <summary>
+    /// When true, uploads are deduplicated by SHA-256 content hash.
+    /// When false, each stored file receives a unique ID so concurrent jobs stay isolated.
+    /// </summary>
+    bool Deduplicate { get; set; }
+
+    /// <summary>
+    /// Deletes a cached file by fileId/hash (best-effort). Returns true if a file was removed.
+    /// </summary>
+    bool DeleteFile(string fileId);
+
+    /// <summary>
+    /// Deletes all cached and temporary files in the cache directory (best-effort).
+    /// </summary>
+    void ClearCache();
 
     /// <summary>
     /// Cleans up old cached files if the total cache exceeds the maximum allowed size.

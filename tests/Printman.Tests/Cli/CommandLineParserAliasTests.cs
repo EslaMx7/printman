@@ -112,6 +112,22 @@ public sealed class CommandLineParserAliasTests
         Assert.AreEqual(13, CommandLineParser.Parse(["serve", "--cache-limit-mb=13"]).CacheLimitMb);
     }
 
+    [TestMethod]
+    [DataRow("serve", "--keep-cache")]
+    [DataRow("serve", "-keep-cache")]
+    [DataRow("share", "--keep-cache")]
+    [DataRow("share", "-keep-cache")]
+    public void Server_KeepCacheAliases_EnableKeepCache(string command, string flag)
+    {
+        var defaults = CommandLineParser.Parse([command]);
+        Assert.IsFalse(defaults.KeepCache);
+        Assert.IsFalse(defaults.ToServerOptions().KeepCache);
+
+        var parsed = CommandLineParser.Parse([command, flag]);
+        Assert.IsTrue(parsed.KeepCache);
+        Assert.IsTrue(parsed.ToServerOptions().KeepCache);
+    }
+
     // ------------------------------------------------------------------ share: sharing options
 
     [TestMethod]

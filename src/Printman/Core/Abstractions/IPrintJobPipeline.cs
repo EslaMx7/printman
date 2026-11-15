@@ -16,6 +16,11 @@ public interface IPrintJobPipeline
     /// </summary>
     string? OutputDirectory { get; set; }
 
+    /// <summary>
+    /// When true, cached source files are deleted after all queued items referencing them finish.
+    /// </summary>
+    bool DeleteAfterPrint { get; set; }
+
     /// <summary>Enqueues a batch and returns a ticket to observe or cancel it.</summary>
     PipelineTicket Enqueue(PipelineBatch batch);
 

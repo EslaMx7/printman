@@ -8,6 +8,7 @@ public sealed class FakePrintJobPipeline : IPrintJobPipeline
 {
     public List<PipelineBatch> Enqueued { get; } = [];
     public string? OutputDirectory { get; set; }
+    public bool DeleteAfterPrint { get; set; } = true;
 
     /// <summary>Overrides the ticket returned from <see cref="Enqueue"/> (e.g. to pre-cancel one).</summary>
     public Func<PipelineBatch, PipelineTicket>? TicketFactory { get; set; }

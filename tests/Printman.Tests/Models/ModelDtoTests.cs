@@ -316,6 +316,7 @@ public sealed class ModelDtoTests
         Assert.IsTrue(options.RequireAuth);
         Assert.AreEqual(50, options.MaxUploadMb);
         Assert.AreEqual(500, options.CacheLimitMb);
+        Assert.IsFalse(options.KeepCache);
         Assert.IsNull(options.OutputDirectory);
         Assert.IsTrue(options.EnableWebUi);
         Assert.IsFalse(options.Share.Enabled);
@@ -324,6 +325,9 @@ public sealed class ModelDtoTests
         Assert.IsTrue(options.Share.EnableMdns);
         Assert.IsFalse(options.Share.AllowAnySource);
         Assert.AreEqual(256, options.Share.MaxJobMb);
+
+        var keepCacheOptions = new ServerOptions { KeepCache = true };
+        Assert.IsTrue(keepCacheOptions.KeepCache);
     }
 
     [TestMethod]

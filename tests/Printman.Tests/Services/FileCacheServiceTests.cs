@@ -380,4 +380,120 @@ public sealed class FileCacheServiceTests
             Path.Combine("/home/me", ".cache", "printman"),
             FileCacheService.DefaultCacheDirectory(windows: false, "/usr/local/bin", xdgCacheHome, "/home/me"));
     }
+
+    [TestMethod]
+    public async Task StoreFileAsync_DeduplicateFalse_AssignsUniqueIdsAndStoresSeparateFiles()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path) { Deduplicate = false };
+
+        var first = await StoreAsync(service, "one.txt", "identical content");
+        var second = await StoreAsync(service, "two.txt", "identical content");
+
+        Assert.IsFalse(first.IsDuplicate);
+        Assert.IsFalse(second.IsDuplicate);
+        Assert.AreNotEqual(first.FileId, second.FileId);
+        Assert.AreNotEqual(first.CachedFilePath, second.CachedFilePath);
+        Assert.AreEqual(2, Directory.GetFiles(temp.Path).Length);
+    }
+
+    [TestMethod]
+    public async Task DeleteFile_IndexedFile_RemovesFromDiskAndIndex()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+        var stored = await StoreAsync(service, "secret.pdf", "pdf-bytes");
+
+        Assert.IsTrue(service.DeleteFile(stored.FileId));
+        Assert.IsFalse(File.Exists(stored.CachedFilePath));
+        Assert.IsNull(service.GetFile(stored.FileId));
+    }
+
+    [TestMethod]
+    public void DeleteFile_UnindexedFileOnDisk_RemovesViaFallbackScan()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+        var path = temp.Combine("deadbeef01234567.pdf");
+        File.WriteAllText(path, "pdf-bytes");
+
+        Assert.IsTrue(service.DeleteFile("deadbeef01234567"));
+        Assert.IsFalse(File.Exists(path));
+        Assert.IsNull(service.GetFile("deadbeef01234567"));
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    [DataRow("missing012345678")]
+    public void DeleteFile_BlankOrUnknownId_ReturnsFalse(string fileId)
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+
+        Assert.IsFalse(service.DeleteFile(fileId));
+    }
+
+    [TestMethod]
+    public async Task DeleteFile_IndexedButAlreadyDeleted_ReturnsFalse()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+        var stored = await StoreAsync(service, "gone.pdf", "pdf-bytes");
+        File.Delete(stored.CachedFilePath);
+
+        Assert.IsFalse(service.DeleteFile(stored.FileId));
+        Assert.IsNull(service.GetFile(stored.FileId));
+    }
+
+    [TestMethod]
+    public async Task DeleteFile_LockedFile_ReturnsFalseAndLeavesFile()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+        var stored = await StoreAsync(service, "locked.pdf", "locked");
+
+        using (new FileStream(stored.CachedFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.IsFalse(service.DeleteFile(stored.FileId));
+        }
+
+        Assert.IsTrue(File.Exists(stored.CachedFilePath));
+    }
+
+    [TestMethod]
+    public void DeleteFile_DeletedDirectory_ReturnsFalse()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+        Directory.Delete(temp.Path, recursive: true);
+
+        Assert.IsFalse(service.DeleteFile("abcdef0123456789"));
+    }
+
+    [TestMethod]
+    public async Task ClearCache_RemovesAllCachedAndTempFilesAndClearsIndex()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+        var stored = await StoreAsync(service, "secret.pdf", "pdf-bytes");
+        File.WriteAllText(temp.Combine("tmp_leftover.tmp"), "tmp");
+
+        service.ClearCache();
+
+        Assert.AreEqual(0, Directory.GetFiles(temp.Path).Length);
+        Assert.IsNull(service.GetFile(stored.FileId));
+    }
+
+    [TestMethod]
+    public void ClearCache_DeletedDirectory_DoesNothing()
+    {
+        using var temp = new TempDirectory();
+        var service = new FileCacheService(temp.Path);
+        Directory.Delete(temp.Path, recursive: true);
+
+        service.ClearCache();
+
+        Assert.IsFalse(Directory.Exists(temp.Path));
+    }
 }

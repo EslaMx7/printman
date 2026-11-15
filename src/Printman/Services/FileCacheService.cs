@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Printman.Core.Abstractions;
 using Printman.Core.Models;
@@ -19,6 +19,7 @@ public class FileCacheService : IFileCacheService
     public string CacheDirectory => _cacheDirectory;
     public long MaxFileSizeBytes { get; set; } = 50L * 1024 * 1024; // 50 MB default
     public long MaxCacheSizeBytes { get; set; } = 500L * 1024 * 1024; // 500 MB default
+    public bool Deduplicate { get; set; } = true;
 
     /// <param name="cacheDirectory">
     /// Directory used for cached uploads. Defaults to <see cref="DefaultCacheDirectory"/> for this OS;
@@ -99,7 +100,8 @@ public class FileCacheService : IFileCacheService
                 fileHash = Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant()[..16]; // 16-char fast compact hash
             }
 
-            var cachedFileName = $"{fileHash}{sanitizedExt}";
+            var fileId = Deduplicate ? fileHash : Guid.NewGuid().ToString("N")[..16];
+            var cachedFileName = $"{fileId}{sanitizedExt}";
             var cachedFilePath = Path.Combine(_cacheDirectory, cachedFileName);
 
             bool isDuplicate = false;
@@ -117,14 +119,14 @@ public class FileCacheService : IFileCacheService
             }
 
             var result = new FileCacheResult(
-                FileId: fileHash,
+                FileId: fileId,
                 OriginalFileName: originalFileName,
                 CachedFilePath: cachedFilePath,
                 FileSizeBytes: totalBytesWritten,
                 IsDuplicate: isDuplicate,
                 Extension: sanitizedExt);
 
-            _cacheIndex[fileHash] = result;
+            _cacheIndex[fileId] = result;
             return result;
         }
         catch
@@ -164,6 +166,66 @@ public class FileCacheService : IFileCacheService
         }
 
         return null;
+    }
+
+    public bool DeleteFile(string fileId)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+        {
+            return false;
+        }
+
+        bool removed = false;
+        if (_cacheIndex.TryRemove(fileId, out var cached))
+        {
+            removed |= TryDeleteFile(cached.CachedFilePath);
+        }
+
+        try
+        {
+            foreach (var path in Directory.GetFiles(_cacheDirectory, $"{fileId}.*"))
+            {
+                removed |= TryDeleteFile(path);
+            }
+        }
+        catch
+        {
+            // Best effort if cache directory is unavailable
+        }
+
+        return removed;
+    }
+
+    public void ClearCache()
+    {
+        _cacheIndex.Clear();
+        if (!Directory.Exists(_cacheDirectory))
+        {
+            return;
+        }
+
+        foreach (var filePath in Directory.GetFiles(_cacheDirectory))
+        {
+            TryDeleteFile(filePath);
+        }
+    }
+
+    private static bool TryDeleteFile(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            File.Delete(path);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void IndexExistingFiles()

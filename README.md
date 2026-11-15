@@ -235,6 +235,7 @@ printman purge "HP Laser"                            # Clear all jobs on a print
 | `--no-auth` | Disable PIN protection | Disabled |
 | `--max-upload-mb` | Maximum file upload size in MB | `50` |
 | `--cache-limit-mb` | Maximum disk cache size in MB | `500` |
+| `--keep-cache` | Retain cached files after printing (off by default for privacy) | Off |
 | `--share [printer]` | Also share a printer on the network (repeatable) | Off |
 | `--share-select` | Also share printers from an interactive checklist | Off |
 
@@ -247,6 +248,7 @@ printman purge "HP Laser"                            # Clear all jobs on a print
 | `--web`, `--ui` | Also start the Web UI (accepts `serve` flags) | Off |
 | `--ipp-port` | IPP network printing port | `631` (Windows), `8631` (Linux / macOS) |
 | `--no-mdns` | Disable mDNS announcement (connect by IPP URL only) | Announce on |
+| `--keep-cache` | Retain cached files after printing (off by default for privacy) | Off |
 | `--ip`, `--bind` | Network binding address | `0.0.0.0` |
 
 </details>

@@ -166,6 +166,7 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
    - `--no-auth` / `--allow-anonymous`: Disable PIN authentication (open access mode).
    - `--max-upload-mb <n>`: Maximum file upload size limit in MB (default: `50`).
    - `--cache-limit-mb <n>`: Total disk cache limit in MB before LRU eviction (default: `500`).
+   - `--keep-cache`: Retain cached print files on disk for deduplication (by default, cached files are deleted after printing and cleared on server startup/shutdown for privacy).
    - `--share [printer]`: Also share printers next to the web UI; repeatable; no name = system default printer. Advertised as `Printman - <printer>`.
    - `--share-select`: Same, picking printers from a checklist (`Interactive/PrinterPicker.cs`, run by `CliHandler` before the server starts; `--share` names are preselected; falls back to typed numbers when stdin/stdout are redirected).
    - `--ipp-port <n>`: IPP port (default: `631` on Windows, `8631` on Linux / macOS where CUPS owns 631; falls back to the web port if busy).
@@ -174,7 +175,7 @@ The embedded LAN Web Server is implemented via ASP.NET Core Minimal APIs / Kestr
    **Command:** `printman share [printer ...] [options]` (alias: `share-select` = `share --select`)
    - Network printers only: same host with `ServerOptions.EnableWebUi = false`. Kestrel listens only on the IPP port, everything outside `/ipp/*` is a 404, no PIN is generated and `printer-more-info` / `adminurl` never point at a web port.
    - Positional printer names (fuzzy); no name = system default printer. `--select` (checklist), `--all` (every printer), `--web` / `--ui` (also start the web UI; equivalent to `serve --share`).
-   - Accepts `--ipp-port`, `--no-mdns`, `--ip`, `--cache-limit-mb`, the hidden flags, and the web flags (used with `--web`; `--port` is also the IPP fallback port). Exits with code 1 when nothing can be shared.
+   - Accepts `--ipp-port`, `--no-mdns`, `--ip`, `--cache-limit-mb`, `--keep-cache`, the hidden flags, and the web flags (used with `--web`; `--port` is also the IPP fallback port). Exits with code 1 when nothing can be shared.
    **No arguments:** `InteractiveWizard` shows a launcher menu (`Interactive/ConsoleMenu.cs`): web UI / share default printer / choose printers to share / both / More tools / Exit.
 2. **Features & Security Architecture:**
    - Detects local LAN IPv4 network interfaces and displays mobile-accessible URLs with quick-auth token links (e.g. `http://192.168.1.X:5000/?pin=123456`).
