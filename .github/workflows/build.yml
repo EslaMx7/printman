@@ -129,7 +129,7 @@ jobs:
       - name: Install CUPS with a virtual PDF printer and a stalled queue
         run: |
           sudo apt-get update
-          sudo apt-get install -y cups cups-client cups-filters cups-pdf cups-ipp-utils poppler-utils avahi-daemon avahi-utils
+          sudo apt-get install -y cups cups-client cups-filters printer-driver-cups-pdf cups-ipp-utils poppler-utils avahi-daemon avahi-utils
           sudo systemctl start cups avahi-daemon
           sudo lpadmin -p PDF -E -v cups-pdf:/ -P /usr/share/ppd/cups-pdf/CUPS-PDF_opt.ppd
           # "Stalled": points at a port nobody listens on, so jobs stay queued for the queue / cancel / purge tests
