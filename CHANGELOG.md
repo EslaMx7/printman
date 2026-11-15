@@ -8,6 +8,17 @@ A rendered version of this file is available at [printman.eslamx.com/changelog](
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-15
+
+### Added
+- `--keep-cache` flag on `printman serve` and `printman share` to optionally retain cached print files on disk for hash-based deduplication.
+
+### Changed
+- Simplified README documentation for clearer setup and quick-start instructions (#7).
+
+### Fixed
+- Automatically delete cached print files after each print job completes (for both Web UI uploads and IPP network printing) and clear the cache directory on server startup and shutdown so sensitive documents are not left on disk (#6, #9).
+
 ## [2.0.0] - 2026-10-13
 
 ### Added
