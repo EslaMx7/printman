@@ -38,6 +38,7 @@ coverage.cobertura.xml
 .env.*
 *.pem
 *.key
+*.certSigningRequest
 credentials.json
 secrets.json
 *.snk

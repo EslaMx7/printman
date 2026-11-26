@@ -101,7 +101,7 @@ public sealed class CupsClient : IDisposable
     {
         try
         {
-            await SendAsync(CupsGetPrinters, "/", op => op.AddKeyword("requested-attributes", "printer-name"), ct: ct);
+            await SendAsync(CupsGetPrinters, "/", op => op.AddKeyword("requested-attributes", "printer-name"), ct: ct).ConfigureAwait(false);
             return null;
         }
         catch (CupsException ex) when (ex.IsUnreachable)
@@ -146,11 +146,11 @@ public sealed class CupsClient : IDisposable
         HttpResponseMessage response;
         try
         {
-            response = await PostAsync(resource, header, documentPath, authenticate: false, ct);
+            response = await PostAsync(resource, header, documentPath, authenticate: false, ct).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.Unauthorized && _endpoint.ViaSocket)
             {
                 response.Dispose();
-                response = await PostAsync(resource, header, documentPath, authenticate: true, ct);
+                response = await PostAsync(resource, header, documentPath, authenticate: true, ct).ConfigureAwait(false);
             }
         }
         catch (HttpRequestException ex)
@@ -174,11 +174,11 @@ public sealed class CupsClient : IDisposable
                 throw new CupsException($"CUPS answered HTTP {(int)response.StatusCode} {response.ReasonPhrase}.");
             }
 
-            await using var body = await response.Content.ReadAsStreamAsync(ct);
+            await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             IppMessage reply;
             try
             {
-                reply = await IppMessageReader.ReadAsync(body, MaxResponseBytes, ct);
+                reply = await IppMessageReader.ReadAsync(body, MaxResponseBytes, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is IppParseException or EndOfStreamException)
             {
@@ -203,11 +203,11 @@ public sealed class CupsClient : IDisposable
     {
         try
         {
-            using var response = await _http.GetAsync($"printers/{Uri.EscapeDataString(printerName)}.ppd", HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await _http.GetAsync($"printers/{Uri.EscapeDataString(printerName)}.ppd", HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return false;
 
             await using var file = File.Create(destination);
-            await response.Content.CopyToAsync(file, ct);
+            await response.Content.CopyToAsync(file, ct).ConfigureAwait(false);
             return true;
         }
         catch (HttpRequestException)
@@ -240,7 +240,7 @@ public sealed class CupsClient : IDisposable
             // cupsd verifies the name against the peer credentials of the domain socket
             message.Headers.Authorization = new AuthenticationHeaderValue("PeerCred", Environment.UserName);
         }
-        return await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct);
+        return await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
     }
 
     private static SocketsHttpHandler CreateHandler(CupsEndpoint endpoint)

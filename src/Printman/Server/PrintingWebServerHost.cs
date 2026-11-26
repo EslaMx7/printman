@@ -66,6 +66,53 @@ public class PrintingWebServerHost(
 
     public async Task<int> RunAsync(ServerOptions options, CancellationToken ct = default)
     {
+        var startResult = await StartAsync(options, emitConsoleOutput: true, ct);
+        if (!startResult.Success || startResult.Server == null)
+        {
+            return 1;
+        }
+
+        await using var server = startResult.Server;
+        int cancelPressCount = 0;
+        using var localCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        ConsoleCancelEventHandler cancelHandler = (s, e) =>
+        {
+            cancelPressCount++;
+            if (cancelPressCount >= 2)
+            {
+                Console.ResetColor();
+                Console.WriteLine("\nForced termination.");
+                Environment.Exit(0);
+            }
+
+            e.Cancel = true;
+            localCts.Cancel();
+        };
+
+        Console.CancelKeyPress += cancelHandler;
+        try
+        {
+            await server.WaitForShutdownAsync(localCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // WaitForShutdownAsync completes normally when the linked token fires; the
+            // shutdown message below covers both the Ctrl+C and external-cancel paths.
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelHandler;
+        }
+
+        Console.WriteLine(server.Info.WebUiEnabled ? "\nWeb server stopped." : "\nPrinter sharing stopped.");
+        return 0;
+    }
+
+    public async Task<ServerStartResult> StartAsync(
+        ServerOptions options,
+        bool emitConsoleOutput = true,
+        CancellationToken ct = default)
+    {
         int port = options.Port;
         string bindAddress = options.BindAddress;
         string? pin = options.Pin;
@@ -133,12 +180,15 @@ public class PrintingWebServerHost(
 
         if (!webUi && !sharing)
         {
-            foreach (var warning in shareWarnings)
+            if (emitConsoleOutput)
             {
-                ConsoleUi.PrintWarning(warning);
+                foreach (var warning in shareWarnings)
+                {
+                    ConsoleUi.PrintWarning(warning);
+                }
+                ConsoleUi.PrintError("Nothing to share. Run 'printman list' to see the installed printers.");
             }
-            ConsoleUi.PrintError("Nothing to share. Run 'printman list' to see the installed printers.");
-            return 1;
+            return ServerStartResult.Fail("Nothing to share. Install a printer or enable the Web UI.", shareWarnings);
         }
 
         var builder = WebApplication.CreateBuilder();
@@ -171,41 +221,44 @@ public class PrintingWebServerHost(
         var app = builder.Build();
 
         // 3. Serialized Print Queue (sec-06)
-        using var queueCts = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
-        var pipelineTask = Task.Run(() => _pipeline.RunAsync(queueCts.Token), ct);
+        var queueCts = CancellationTokenSource.CreateLinkedTokenSource(ct, app.Lifetime.ApplicationStopping);
+        var queueToken = queueCts.Token;
+        var pipelineTask = Task.Run(() => _pipeline.RunAsync(queueToken), queueToken);
 
         // 4. Background Spooler Queue Observer (feeds the web UI's live queue)
-        _ = Task.Run(async () =>
-        {
-            int lastJobCount = -1;
-            string lastStatusSummary = "";
-            while (webUi && !ct.IsCancellationRequested)
+        var observerTask = webUi
+            ? Task.Run(async () =>
             {
-                try
+                int lastJobCount = -1;
+                string lastStatusSummary = "";
+                while (!queueToken.IsCancellationRequested)
                 {
-                    await Task.Delay(1500, ct);
-
-                    var jobs = _queueService.GetJobs();
-                    int currentCount = jobs.Count;
-                    string statusSummary = currentCount > 0
-                        ? string.Join(";", jobs.Select(j => $"{j.JobId}:{j.StatusCode}:{j.PagesPrinted}"))
-                        : "0";
-
-                    if (currentCount != lastJobCount || statusSummary != lastStatusSummary)
+                    try
                     {
-                        lastJobCount = currentCount;
-                        lastStatusSummary = statusSummary;
-                        _eventHub.Publish(new PrintEvent
+                        await Task.Delay(1500, queueToken);
+
+                        var jobs = _queueService.GetJobs();
+                        int currentCount = jobs.Count;
+                        string statusSummary = currentCount > 0
+                            ? string.Join(";", jobs.Select(j => $"{j.JobId}:{j.StatusCode}:{j.PagesPrinted}"))
+                            : "0";
+
+                        if (currentCount != lastJobCount || statusSummary != lastStatusSummary)
                         {
-                            Type = "queue_updated",
-                            Message = $"Queue updated ({currentCount} active job(s))."
-                        });
+                            lastJobCount = currentCount;
+                            lastStatusSummary = statusSummary;
+                            _eventHub.Publish(new PrintEvent
+                            {
+                                Type = "queue_updated",
+                                Message = $"Queue updated ({currentCount} active job(s))."
+                            });
+                        }
                     }
+                    catch (OperationCanceledException) { break; }
+                    catch { }
                 }
-                catch (OperationCanceledException) { break; }
-                catch { }
-            }
-        }, ct);
+            }, queueToken)
+            : Task.CompletedTask;
 
         // Authentication and CSRF helper checks (sec-01, sec-04)
         bool IsRequestAuthenticated(HttpRequest req)
@@ -600,39 +653,6 @@ public class PrintingWebServerHost(
             return Results.Ok(new { success = true, purged });
         });
 
-        // Show start banner in console
-        ConsoleUi.ShowBanner();
-        if (webUi)
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\n  [WEB SERVER RUNNING]  Port: {port}");
-            Console.ResetColor();
-
-            if (requireAuth)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"  [SECURITY] PIN Protected:  {pin}");
-                Console.ResetColor();
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-                Console.WriteLine("  [SECURITY] Open Access (--no-auth enabled)");
-                Console.ResetColor();
-            }
-
-            Console.WriteLine("\n  Access from this machine or your phone on the same Wi-Fi:");
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            string pinQuery = requireAuth ? $"?pin={pin}" : "";
-            Console.WriteLine($"    Local:    http://localhost:{port}/{pinQuery}");
-
-            foreach (var ip in lanIps)
-            {
-                Console.WriteLine($"    Network:  http://{ip}:{port}/{pinQuery}");
-            }
-            Console.ResetColor();
-        }
-
         // Network printer advertising (mDNS / DNS-SD)
         bool advertising = false;
         if (sharing && share.EnableMdns)
@@ -651,107 +671,181 @@ public class PrintingWebServerHost(
             }
         }
 
-        if (sharing)
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\n  [NETWORK PRINTERS]  IPP port: {ippPort}");
-            Console.ResetColor();
+        IReadOnlyList<string> firewallHints = sharing
+            ? _firewall.CheckInboundAccess(ippPort, advertising)
+            : [];
 
-            foreach (var shared in _sharedPrinters.Printers)
+        string pinQuery = requireAuth ? $"?pin={pin}" : "";
+        string? localUrl = webUi ? $"http://localhost:{port}/{pinQuery}" : null;
+        var lanUrls = webUi
+            ? lanIps.Select(ip => $"http://{ip}:{port}/{pinQuery}").ToList()
+            : [];
+
+        var sharedEndpoints = sharing
+            ? _sharedPrinters.Printers.Select(shared =>
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"    {shared.DisplayName}");
-                Console.ForegroundColor = ConsoleColor.DarkGray;
+                var urls = new List<string>();
                 if (advertising)
                 {
-                    Console.WriteLine($"      ipp://{_advertiser.HostName}:{ippPort}/{shared.ResourcePath}");
+                    urls.Add($"ipp://{_advertiser.HostName}:{ippPort}/{shared.ResourcePath}");
                 }
                 foreach (var ip in lanIps.Take(2))
                 {
-                    Console.WriteLine($"      ipp://{ip}:{ippPort}/{shared.ResourcePath}");
+                    urls.Add($"ipp://{ip}:{ippPort}/{shared.ResourcePath}");
                 }
-                Console.ResetColor();
-            }
-
-            Console.WriteLine(advertising
-                ? "  Discoverable from iPhone/iPad (AirPrint), Android, Windows, macOS and Linux print dialogs."
-                : "  Discovery is off (--no-mdns): add the printer on each device using one of the URLs above.");
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(requireAuth
-                ? "  Anyone on this network can print to these printers without the PIN."
-                : "  Anyone on this network can print to these printers.");
-            Console.ResetColor();
-
-            var firewallHints = _firewall.CheckInboundAccess(ippPort, advertising);
-            if (firewallHints.Count > 0)
-            {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                foreach (var hint in firewallHints)
+                return new SharedPrinterEndpoint
                 {
-                    Console.WriteLine($"  {hint}");
+                    SystemName = shared.SystemName,
+                    DisplayName = shared.DisplayName,
+                    ResourcePath = shared.ResourcePath,
+                    IppUrls = urls
+                };
+            }).ToList()
+            : [];
+
+        var allWarnings = shareWarnings.Concat(firewallHints).ToList();
+
+        if (emitConsoleOutput)
+        {
+            ConsoleUi.ShowBanner();
+            if (webUi)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"\n  [WEB SERVER RUNNING]  Port: {port}");
+                Console.ResetColor();
+
+                if (requireAuth)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"  [SECURITY] PIN Protected:  {pin}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine("  [SECURITY] Open Access (--no-auth enabled)");
+                    Console.ResetColor();
+                }
+
+                Console.WriteLine("\n  Access from this machine or your phone on the same Wi-Fi:");
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"    Local:    {localUrl}");
+
+                foreach (var url in lanUrls)
+                {
+                    Console.WriteLine($"    Network:  {url}");
                 }
                 Console.ResetColor();
             }
-        }
 
-        foreach (var warning in shareWarnings)
-        {
-            ConsoleUi.PrintWarning(warning);
-        }
-
-        Console.WriteLine(webUi
-            ? "\n  Live SSE status reporting enabled • Drag & drop supported"
-            : "\n  Web UI is off. Run 'printman serve' (or add --web) to also print from a browser.");
-        Console.ForegroundColor = ConsoleColor.DarkGray;
-        Console.Write("  Enjoying Printman? If this helped you, a coffee is warmly appreciated: ");
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("https://buymeacoffee.com/eslamx7");
-        Console.ResetColor();
-        Console.WriteLine(webUi ? "  Press Ctrl+C to stop the server.\n" : "  Press Ctrl+C to stop sharing.\n");
-
-        int cancelPressCount = 0;
-        using var localCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        ConsoleCancelEventHandler cancelHandler = (s, e) =>
-        {
-            cancelPressCount++;
-            if (cancelPressCount >= 2)
+            if (sharing)
             {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"\n  [NETWORK PRINTERS]  IPP port: {ippPort}");
                 Console.ResetColor();
-                Console.WriteLine("\nForced termination.");
-                Environment.Exit(0);
+
+                foreach (var shared in sharedEndpoints)
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"    {shared.DisplayName}");
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    foreach (var ippUrl in shared.IppUrls)
+                    {
+                        Console.WriteLine($"      {ippUrl}");
+                    }
+                    Console.ResetColor();
+                }
+
+                Console.WriteLine(advertising
+                    ? "  Discoverable from iPhone/iPad (AirPrint), Android, Windows, macOS and Linux print dialogs."
+                    : "  Discovery is off (--no-mdns): add the printer on each device using one of the URLs above.");
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(requireAuth
+                    ? "  Anyone on this network can print to these printers without the PIN."
+                    : "  Anyone on this network can print to these printers.");
+                Console.ResetColor();
+
+                if (firewallHints.Count > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    foreach (var hint in firewallHints)
+                    {
+                        Console.WriteLine($"  {hint}");
+                    }
+                    Console.ResetColor();
+                }
             }
 
-            e.Cancel = true;
-            localCts.Cancel();
-            try { _ = app.StopAsync(); } catch { }
-        };
+            foreach (var warning in shareWarnings)
+            {
+                ConsoleUi.PrintWarning(warning);
+            }
 
-        Console.CancelKeyPress += cancelHandler;
+            Console.WriteLine(webUi
+                ? "\n  Live SSE status reporting enabled • Drag & drop supported"
+                : "\n  Web UI is off. Run 'printman serve' (or add --web) to also print from a browser.");
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write("  Enjoying Printman? If this helped you, a coffee is warmly appreciated: ");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("https://buymeacoffee.com/eslamx7");
+            Console.ResetColor();
+            Console.WriteLine(webUi ? "  Press Ctrl+C to stop the server.\n" : "  Press Ctrl+C to stop sharing.\n");
+        }
+
         try
         {
-            await app.RunAsync(localCts.Token);
-            return 0;
+            await app.StartAsync(ct);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
-            Console.WriteLine(webUi ? "\nWeb server stopped." : "\nPrinter sharing stopped.");
-            return 0;
-        }
-        finally
-        {
-            Console.CancelKeyPress -= cancelHandler;
             queueCts.Cancel();
-            try { await pipelineTask.WaitAsync(TimeSpan.FromSeconds(2)); } catch { }
+            try { await Task.WhenAll(pipelineTask, observerTask).WaitAsync(TimeSpan.FromSeconds(2)); } catch { }
             if (advertising)
             {
-                // Goodbye packets remove the printers from devices' lists right away
                 try { await _advertiser.StopAsync(); } catch { }
             }
             if (!options.KeepCache)
             {
                 _fileCache.ClearCache();
             }
+            await app.DisposeAsync();
+            queueCts.Dispose();
+            if (emitConsoleOutput)
+            {
+                ConsoleUi.PrintError($"Failed to start server: {ex.Message}");
+            }
+            return ServerStartResult.Fail(ex.Message, allWarnings);
         }
+
+        var runtimeInfo = new ServerRuntimeInfo
+        {
+            WebUiEnabled = webUi,
+            WebPort = port,
+            BindAddress = bindAddress,
+            RequireAuth = requireAuth,
+            Pin = pin,
+            LocalUrl = localUrl,
+            LanUrls = lanUrls,
+            LanIps = lanIps,
+            SharingEnabled = sharing,
+            IppPort = ippPort,
+            MdnsActive = advertising,
+            MdnsHostName = advertising ? _advertiser.HostName : null,
+            SharedPrinters = sharedEndpoints,
+            Warnings = allWarnings
+        };
+
+        var runningServer = new RunningWebServer(
+            app,
+            queueCts,
+            pipelineTask,
+            observerTask,
+            advertising ? _advertiser : null,
+            _fileCache,
+            options.KeepCache,
+            runtimeInfo);
+
+        return ServerStartResult.Ok(runningServer);
     }
 
     private static bool IsTcpPortAvailable(string bindAddress, int port)
@@ -848,3 +942,87 @@ public class PrintingWebServerHost(
         return result;
     }
 }
+
+public sealed record ServerStartResult(
+    bool Success,
+    RunningWebServer? Server,
+    string? ErrorMessage,
+    IReadOnlyList<string> Warnings)
+{
+    public static ServerStartResult Ok(RunningWebServer server) =>
+        new(true, server, null, server.Info.Warnings);
+
+    public static ServerStartResult Fail(string errorMessage, IReadOnlyList<string> warnings) =>
+        new(false, null, errorMessage, warnings);
+}
+
+public sealed class RunningWebServer : IAsyncDisposable
+{
+    private readonly WebApplication _app;
+    private readonly CancellationTokenSource _queueCts;
+    private readonly Task _pipelineTask;
+    private readonly Task _observerTask;
+    private readonly IServiceAdvertiser? _advertiser;
+    private readonly IFileCacheService _fileCache;
+    private readonly bool _keepCache;
+    private readonly object _stopLock = new();
+    private Task? _stopTask;
+
+    internal RunningWebServer(
+        WebApplication app,
+        CancellationTokenSource queueCts,
+        Task pipelineTask,
+        Task observerTask,
+        IServiceAdvertiser? advertiser,
+        IFileCacheService fileCache,
+        bool keepCache,
+        ServerRuntimeInfo info)
+    {
+        _app = app;
+        _queueCts = queueCts;
+        _pipelineTask = pipelineTask;
+        _observerTask = observerTask;
+        _advertiser = advertiser;
+        _fileCache = fileCache;
+        _keepCache = keepCache;
+        Info = info;
+    }
+
+    public ServerRuntimeInfo Info { get; }
+
+    public Task WaitForShutdownAsync(CancellationToken ct = default) =>
+        _app.WaitForShutdownAsync(ct);
+
+    public Task StopAsync()
+    {
+        lock (_stopLock)
+        {
+            return _stopTask ??= StopCoreAsync();
+        }
+    }
+
+    private async Task StopCoreAsync()
+    {
+        try { await _app.StopAsync(); } catch { }
+
+        _queueCts.Cancel();
+        try { await Task.WhenAll(_pipelineTask, _observerTask).WaitAsync(TimeSpan.FromSeconds(2)); } catch { }
+
+        if (_advertiser != null)
+        {
+            // Goodbye packets remove the printers from devices' lists right away
+            try { await _advertiser.StopAsync(); } catch { }
+        }
+
+        if (!_keepCache)
+        {
+            _fileCache.ClearCache();
+        }
+
+        try { await _app.DisposeAsync(); } catch { }
+        _queueCts.Dispose();
+    }
+
+    public ValueTask DisposeAsync() => new(StopAsync());
+}
+
