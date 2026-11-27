@@ -8,6 +8,19 @@ A rendered version of this file is available at [printman.eslamx.com/changelog](
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-27
+
+### Added
+- Cross-platform **Printman Desktop** system-tray and menu-bar application (`printman-desktop` / `Printman.app`) for Windows, macOS, and Linux.
+- Printer sharing setup panel, live connection info with QR code and PIN badge, multi-printer IPP URL cards with host selector and one-click copy, and live activity feed.
+- About window with dynamic app version, author credits, official links, support email, and GitHub Releases update checker (`UpdateChecker`).
+- Dynamic build versioning (`Directory.Build.targets`) and headless Avalonia UI test suite (`tests/Printman.Desktop.Tests`).
+
+### Changed
+- Browser-first Web UI integration from Desktop (`Open Web UI` opens directly in the system browser).
+- Split `PrintingWebServerHost.RunAsync` into `StartAsync` + `RunningWebServer` with a `ServerRuntimeInfo` snapshot for in-process lifecycle management.
+- Added `.ConfigureAwait(false)` on async calls in `CupsClient`.
+
 ## [2.1.1] - 2026-11-15
 
 ### Added

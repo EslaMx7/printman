@@ -13,7 +13,6 @@ public sealed class DesktopSettings
     public bool RequirePin { get; set; } = true;
     public string? CustomPin { get; set; }
     public bool AutoStartServer { get; set; }
-    public bool PreferBuiltInWebView { get; set; } = true;
     public bool KeepCache { get; set; }
 }
 

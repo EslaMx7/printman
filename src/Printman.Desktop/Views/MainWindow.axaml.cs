@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -14,12 +15,15 @@ public partial class MainWindow : Window
     private readonly DesktopServerManager _serverManager;
     private readonly WebUiPresenter _webUiPresenter;
     private readonly DesktopSettings _settings;
-    private readonly Func<Task> _quitCallback;
+    private readonly UpdateChecker _updateChecker;
 
     private bool _isSuppressingUiEvents;
     private bool _hasPendingSettingsChanges;
     private bool _isQuitting;
     private string? _alertCopyCommand;
+    private string? _activeWebUrl;
+    private ServerRuntimeInfo? _activeRuntimeInfo;
+    private AboutWindow? _aboutWindow;
 
     public MainWindow()
     {
@@ -27,26 +31,28 @@ public partial class MainWindow : Window
         _serverManager = null!;
         _webUiPresenter = null!;
         _settings = new DesktopSettings();
-        _quitCallback = () => Task.CompletedTask;
+        _updateChecker = new UpdateChecker();
     }
 
     public MainWindow(
         DesktopServerManager serverManager,
         WebUiPresenter webUiPresenter,
         DesktopSettings settings,
-        Func<Task> quitCallback)
+        UpdateChecker? updateChecker = null)
     {
         InitializeComponent();
         _serverManager = serverManager;
         _webUiPresenter = webUiPresenter;
         _settings = settings;
-        _quitCallback = quitCallback;
+        _updateChecker = updateChecker ?? new UpdateChecker();
 
         LoadSettingsIntoControls();
 
         _serverManager.StateChanged += () => Dispatcher.UIThread.Post(RefreshView);
         _serverManager.EventReceived += evt => Dispatcher.UIThread.Post(() => AppendActivityEvent(evt));
+        _updateChecker.Completed += OnUpdateCheckCompleted;
 
+        ApplyFooterUpdateState(_updateChecker.LastResult);
         RefreshView();
     }
 
@@ -78,6 +84,35 @@ public partial class MainWindow : Window
         });
     }
 
+    public void PreviewConnectionInfo(ServerRuntimeInfo info)
+    {
+        _activeRuntimeInfo = info;
+        UpdateConnectionPanels(DesktopServerState.Running, info);
+        UpdateFooterStatus(DesktopServerState.Running, info);
+    }
+
+    public void ShowAboutWindow(bool checkForUpdates = false)
+    {
+        if (_aboutWindow != null)
+        {
+            _aboutWindow.Activate();
+            return;
+        }
+
+        var about = new AboutWindow(_webUiPresenter, _updateChecker, checkForUpdates);
+        about.Closed += (_, _) => _aboutWindow = null;
+        _aboutWindow = about;
+
+        if (IsVisible)
+        {
+            about.Show(this);
+        }
+        else
+        {
+            about.Show();
+        }
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         if (!_isQuitting)
@@ -87,7 +122,26 @@ public partial class MainWindow : Window
             return;
         }
 
+        _updateChecker.Completed -= OnUpdateCheckCompleted;
+        _aboutWindow?.Close();
         base.OnClosing(e);
+    }
+
+    private void OnUpdateCheckCompleted(UpdateCheckResult result) =>
+        Dispatcher.UIThread.Post(() => ApplyFooterUpdateState(result));
+
+    private void ApplyFooterUpdateState(UpdateCheckResult? result)
+    {
+        if (result?.Status == UpdateCheckStatus.UpdateAvailable &&
+            !string.IsNullOrEmpty(result.LatestVersion))
+        {
+            FooterUpdateButton.Content = $"Update available: v{result.LatestVersion}";
+            FooterUpdateButton.IsVisible = true;
+        }
+        else
+        {
+            FooterUpdateButton.IsVisible = false;
+        }
     }
 
     private void LoadSettingsIntoControls()
@@ -101,7 +155,6 @@ public partial class MainWindow : Window
             WebPortTextBox.Text = (_settings.WebPort > 0 ? _settings.WebPort : 5000).ToString();
             RequirePinCheckBox.IsChecked = _settings.RequirePin;
             CustomPinTextBox.Text = _settings.CustomPin ?? "";
-            PreferBuiltInWebViewCheckBox.IsChecked = _settings.PreferBuiltInWebView;
             AutoStartCheckBox.IsChecked = _settings.AutoStartServer;
             UpdateOptionControlEnabledStates();
         }
@@ -113,6 +166,11 @@ public partial class MainWindow : Window
 
     private void UpdateOptionControlEnabledStates()
     {
+        bool sharingEnabled = EnableSharingCheckBox.IsChecked == true;
+        ShareAllCheckBox.IsEnabled = sharingEnabled;
+        PrintersListPanel.IsEnabled = sharingEnabled;
+        PrintersListPanel.Opacity = sharingEnabled ? 1.0 : 0.55;
+
         bool webEnabled = EnableWebUiCheckBox.IsChecked == true;
         WebPortTextBox.IsEnabled = webEnabled;
         RequirePinCheckBox.IsEnabled = webEnabled;
@@ -146,7 +204,6 @@ public partial class MainWindow : Window
         _settings.CustomPin = string.IsNullOrWhiteSpace(CustomPinTextBox.Text)
             ? null
             : CustomPinTextBox.Text.Trim();
-        _settings.PreferBuiltInWebView = PreferBuiltInWebViewCheckBox.IsChecked == true;
         _settings.AutoStartServer = AutoStartCheckBox.IsChecked == true;
 
         DesktopSettingsStore.Save(_settings);
@@ -181,11 +238,59 @@ public partial class MainWindow : Window
         var info = _serverManager.RuntimeInfo;
         var printers = _serverManager.InstalledPrinters;
 
+        _activeRuntimeInfo = state == DesktopServerState.Running ? info : null;
+
         RebuildPrintersList(printers);
         UpdateStatusHeader(state, info);
         UpdateAlertBanner(state, info);
         UpdateConnectionPanels(state, info);
+        UpdateFooterStatus(state, info);
         ApplyRestartButton.IsVisible = _hasPendingSettingsChanges && state == DesktopServerState.Running;
+    }
+
+    private void UpdateFooterStatus(DesktopServerState state, ServerRuntimeInfo? info)
+    {
+        switch (state)
+        {
+            case DesktopServerState.Running:
+                if (info != null)
+                {
+                    var parts = new List<string>();
+                    if (info.SharingEnabled)
+                    {
+                        int count = info.SharedPrinters.Count;
+                        parts.Add(count == 1 ? "Sharing 1 printer" : $"Sharing {count} printers");
+                        parts.Add($"IPP :{info.IppPort}");
+                    }
+                    if (info.WebUiEnabled)
+                    {
+                        parts.Add($"Web UI :{info.WebPort}");
+                    }
+                    var summary = parts.Count > 0 ? string.Join(", ", parts) : "Active";
+                    FooterStatusText.Text = $"Running: {summary}. Minimizes to system tray on close.";
+                }
+                else
+                {
+                    FooterStatusText.Text = "Running. Minimizes to system tray on close.";
+                }
+                break;
+
+            case DesktopServerState.Starting:
+                FooterStatusText.Text = "Starting HTTP, IPP, and mDNS services...";
+                break;
+
+            case DesktopServerState.CupsUnavailable:
+                FooterStatusText.Text = "CUPS service unavailable. Check diagnostics banner above.";
+                break;
+
+            case DesktopServerState.Error:
+                FooterStatusText.Text = "Error: server stopped.";
+                break;
+
+            default:
+                FooterStatusText.Text = "Stopped. Closing this window keeps Printman in the system tray.";
+                break;
+        }
     }
 
     private void UpdateStatusHeader(DesktopServerState state, ServerRuntimeInfo? info)
@@ -223,7 +328,7 @@ public partial class MainWindow : Window
                 StatusBadgeText.Text = "Error";
                 PrimaryActionButton.Content = "Start Sharing";
                 PrimaryActionButton.IsEnabled = true;
-                SubtitleText.Text = _serverManager.ErrorMessage ?? "Failed to start Printman.";
+                SubtitleText.Text = "Failed to start. Check details below.";
                 break;
 
             default:
@@ -231,13 +336,13 @@ public partial class MainWindow : Window
                 StatusBadgeText.Text = "Stopped";
                 PrimaryActionButton.Content = "Start Sharing";
                 PrimaryActionButton.IsEnabled = true;
-                SubtitleText.Text = "Share any USB printer over AirPrint / Mopria and local Web UI.";
+                SubtitleText.Text = "Share local printers over AirPrint / Mopria and Web UI.";
                 break;
         }
 
-        bool webRunning = state == DesktopServerState.Running && info?.WebUiEnabled == true && !string.IsNullOrEmpty(info.LocalUrl);
-        OpenWebUiButton.IsEnabled = webRunning;
-        OpenBrowserButton.IsEnabled = webRunning;
+        OpenWebUiButton.IsEnabled = state == DesktopServerState.Running &&
+                                    info?.WebUiEnabled == true &&
+                                    !string.IsNullOrEmpty(info.LocalUrl);
     }
 
     private static string BuildRunningSubtitle(ServerRuntimeInfo info)
@@ -251,7 +356,7 @@ public partial class MainWindow : Window
         {
             parts.Add($"Web UI on :{info.WebPort}");
         }
-        return string.Join("  •  ", parts);
+        return string.Join(", ", parts);
     }
 
     private void UpdateAlertBanner(DesktopServerState state, ServerRuntimeInfo? info)
@@ -374,12 +479,15 @@ public partial class MainWindow : Window
         if (state != DesktopServerState.Running || info == null)
         {
             IdleInfoPanel.IsVisible = true;
+            RunningContentGrid.IsVisible = false;
             WebConnectionPanel.IsVisible = false;
             SharedPrintersPanel.IsVisible = false;
+            _activeWebUrl = null;
             return;
         }
 
         IdleInfoPanel.IsVisible = false;
+        RunningContentGrid.IsVisible = true;
 
         // Web UI + QR code
         if (info.WebUiEnabled)
@@ -392,16 +500,30 @@ public partial class MainWindow : Window
             _isSuppressingUiEvents = true;
             try
             {
-                LanUrlSelector.ItemsSource = urls;
-                if (urls.Count > 0)
+                if (urls.Count > 1)
                 {
+                    LanUrlSelector.IsVisible = true;
+                    SingleLanUrlBorder.IsVisible = false;
+                    LanUrlSelector.ItemsSource = urls;
                     LanUrlSelector.SelectedIndex = 0;
-                    LanQrCode.Value = urls[0];
+                    _activeWebUrl = urls[0];
+                }
+                else if (urls.Count == 1)
+                {
+                    LanUrlSelector.IsVisible = false;
+                    LanUrlSelector.ItemsSource = null;
+                    SingleLanUrlBorder.IsVisible = true;
+                    SingleLanUrlText.Text = urls[0];
+                    _activeWebUrl = urls[0];
                 }
                 else
                 {
-                    LanQrCode.Value = null;
+                    LanUrlSelector.IsVisible = false;
+                    SingleLanUrlBorder.IsVisible = false;
+                    _activeWebUrl = null;
                 }
+
+                LanQrCode.Value = _activeWebUrl;
             }
             finally
             {
@@ -424,66 +546,171 @@ public partial class MainWindow : Window
         else
         {
             WebConnectionPanel.IsVisible = false;
+            _activeWebUrl = null;
         }
 
         // Shared IPP endpoints
         if (info.SharingEnabled && info.SharedPrinters.Count > 0)
         {
             SharedPrintersPanel.IsVisible = true;
-            SharedPrintersHeaderText.Text = info.MdnsActive
-                ? $"Network Printers (AirPrint / Mopria active on :{info.IppPort})"
-                : $"Network Printers (IPP active on :{info.IppPort}, mDNS off)";
-
-            SharedPrintersLinksPanel.Children.Clear();
-            foreach (var sp in info.SharedPrinters)
-            {
-                var card = new StackPanel { Spacing = 2 };
-                card.Children.Add(new TextBlock
-                {
-                    Text = sp.DisplayName,
-                    FontWeight = FontWeight.SemiBold,
-                    FontSize = 12
-                });
-
-                foreach (var ippUrl in sp.IppUrls)
-                {
-                    var row = new Grid
-                    {
-                        ColumnDefinitions = ColumnDefinitions.Parse("*,Auto"),
-                        ColumnSpacing = 8
-                    };
-                    row.Children.Add(new SelectableTextBlock
-                    {
-                        Text = ippUrl,
-                        FontFamily = new FontFamily("Consolas,Menlo,monospace"),
-                        FontSize = 11,
-                        VerticalAlignment = VerticalAlignment.Center
-                    });
-
-                    var copyBtn = new Button
-                    {
-                        Content = "Copy",
-                        Padding = new Avalonia.Thickness(8, 2),
-                        FontSize = 11
-                    };
-                    var urlCopy = ippUrl;
-                    copyBtn.Click += async (_, _) => await CopyTextAsync(urlCopy);
-                    Grid.SetColumn(copyBtn, 1);
-                    row.Children.Add(copyBtn);
-                    card.Children.Add(row);
-                }
-
-                SharedPrintersLinksPanel.Children.Add(card);
-            }
+            RebuildSharedPrintersList(info);
         }
         else
         {
             SharedPrintersPanel.IsVisible = false;
+            SharedPrintersLinksPanel.Children.Clear();
+        }
+    }
+
+    private void RebuildSharedPrintersList(ServerRuntimeInfo info)
+    {
+        int count = info.SharedPrinters.Count;
+        SharedPrintersCountText.Text = count == 1 ? "1 printer" : $"{count} printers";
+        SharedPrintersHeaderText.Text = info.MdnsActive
+            ? $"AirPrint and Mopria discovery active on IPP :{info.IppPort}"
+            : $"Manual setup (mDNS off) on IPP :{info.IppPort}";
+
+        var hostLabels = ExtractIppHostLabels(info);
+        _isSuppressingUiEvents = true;
+        try
+        {
+            if (hostLabels.Count > 1)
+            {
+                IppHostSelectorPanel.IsVisible = true;
+                int prevIndex = IppHostSelector.SelectedIndex;
+                IppHostSelector.ItemsSource = hostLabels;
+                IppHostSelector.SelectedIndex = prevIndex >= 0 && prevIndex < hostLabels.Count ? prevIndex : 0;
+            }
+            else
+            {
+                IppHostSelectorPanel.IsVisible = false;
+                IppHostSelector.ItemsSource = null;
+            }
+        }
+        finally
+        {
+            _isSuppressingUiEvents = false;
+        }
+
+        RenderSharedPrinterCards(info);
+    }
+
+    private void RenderSharedPrinterCards(ServerRuntimeInfo info)
+    {
+        SharedPrintersLinksPanel.Children.Clear();
+
+        int hostIndex = IppHostSelectorPanel.IsVisible && IppHostSelector.SelectedIndex >= 0
+            ? IppHostSelector.SelectedIndex
+            : 0;
+
+        var cardBg = GetThemeBrush("SystemControlPageBackgroundChromeLowBrush");
+        var cardBorder = GetThemeBrush("SystemControlForegroundBaseLowBrush");
+
+        foreach (var sp in info.SharedPrinters)
+        {
+            var ippUrl = sp.IppUrls.Count > 0
+                ? sp.IppUrls[Math.Clamp(hostIndex, 0, sp.IppUrls.Count - 1)]
+                : $"ipp://localhost:{info.IppPort}/{sp.ResourcePath}";
+
+            var topRow = new Grid
+            {
+                ColumnDefinitions = ColumnDefinitions.Parse("*,Auto"),
+                ColumnSpacing = 8
+            };
+
+            var nameBlock = new TextBlock
+            {
+                Text = sp.SystemName,
+                FontWeight = FontWeight.SemiBold,
+                FontSize = 12.5,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTip.SetTip(nameBlock, $"{sp.DisplayName} ({sp.SystemName})");
+            topRow.Children.Add(nameBlock);
+
+            var copyBtn = new Button
+            {
+                Content = "Copy URL",
+                Padding = new Thickness(8, 2),
+                FontSize = 11
+            };
+            var urlCopy = ippUrl;
+            copyBtn.Click += async (_, _) => await CopyWithFeedbackAsync(copyBtn, urlCopy);
+            Grid.SetColumn(copyBtn, 1);
+            topRow.Children.Add(copyBtn);
+
+            var urlBlock = new SelectableTextBlock
+            {
+                Text = ippUrl,
+                FontFamily = new FontFamily("Consolas,Menlo,monospace"),
+                FontSize = 11,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Opacity = 0.82
+            };
+            ToolTip.SetTip(urlBlock, ippUrl);
+
+            var cardContent = new StackPanel { Spacing = 3 };
+            cardContent.Children.Add(topRow);
+            cardContent.Children.Add(urlBlock);
+
+            var card = new Border
+            {
+                Padding = new Thickness(10, 7),
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                Child = cardContent
+            };
+            if (cardBg != null) card.Background = cardBg;
+            if (cardBorder != null) card.BorderBrush = cardBorder;
+
+            SharedPrintersLinksPanel.Children.Add(card);
+        }
+    }
+
+    private static List<string> ExtractIppHostLabels(ServerRuntimeInfo info)
+    {
+        var firstUrls = info.SharedPrinters.FirstOrDefault()?.IppUrls;
+        if (firstUrls == null || firstUrls.Count == 0)
+        {
+            return [];
+        }
+
+        var labels = new List<string>(firstUrls.Count);
+        foreach (var rawUrl in firstUrls)
+        {
+            if (Uri.TryCreate(rawUrl, UriKind.Absolute, out var uri) && !string.IsNullOrEmpty(uri.Authority))
+            {
+                bool isMdns = uri.Host.EndsWith(".local", StringComparison.OrdinalIgnoreCase);
+                labels.Add(isMdns && info.MdnsActive ? $"{uri.Authority} (mDNS)" : uri.Authority);
+            }
+            else
+            {
+                labels.Add(rawUrl);
+            }
+        }
+        return labels;
+    }
+
+    private IBrush? GetThemeBrush(string key) =>
+        this.TryFindResource(key, ActualThemeVariant, out var res) && res is IBrush brush
+            ? brush
+            : null;
+
+    private async Task CopyWithFeedbackAsync(Button button, string text)
+    {
+        await CopyTextAsync(text);
+        button.Content = "Copied";
+        await Task.Delay(1200);
+        if (ReferenceEquals(button.Content, "Copied"))
+        {
+            button.Content = "Copy URL";
         }
     }
 
     private void AppendActivityEvent(PrintEvent evt)
     {
+        ActivityEmptyText.IsVisible = false;
         var line = new TextBlock
         {
             Text = $"[{evt.Timestamp.ToLocalTime():HH:mm:ss}] {evt.Message}",
@@ -509,8 +736,7 @@ public partial class MainWindow : Window
         }
 
         if (_serverManager.State == DesktopServerState.Running &&
-            !ReferenceEquals(sender, AutoStartCheckBox) &&
-            !ReferenceEquals(sender, PreferBuiltInWebViewCheckBox))
+            !ReferenceEquals(sender, AutoStartCheckBox))
         {
             _hasPendingSettingsChanges = true;
             ApplyRestartButton.IsVisible = true;
@@ -590,18 +816,10 @@ public partial class MainWindow : Window
         var url = _serverManager.RuntimeInfo?.LocalUrl;
         if (string.IsNullOrEmpty(url)) return;
 
-        var result = _webUiPresenter.Open(url, _settings.PreferBuiltInWebView, this);
-        if (!string.IsNullOrEmpty(result.Notice))
+        if (!_webUiPresenter.Open(url))
         {
-            ShowNotice(result.Notice);
+            ShowNotice($"Could not open system browser for {url}.");
         }
-    }
-
-    private void OnOpenBrowserClick(object? sender, RoutedEventArgs e)
-    {
-        var url = _serverManager.RuntimeInfo?.LocalUrl;
-        if (string.IsNullOrEmpty(url)) return;
-        WebUiPresenter.OpenInSystemBrowser(url);
     }
 
     private void OnLanUrlSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -609,15 +827,22 @@ public partial class MainWindow : Window
         if (_isSuppressingUiEvents) return;
         if (LanUrlSelector.SelectedItem is string url)
         {
+            _activeWebUrl = url;
             LanQrCode.Value = url;
         }
     }
 
+    private void OnIppHostSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_isSuppressingUiEvents || _activeRuntimeInfo == null) return;
+        RenderSharedPrinterCards(_activeRuntimeInfo);
+    }
+
     private async void OnCopyLanUrlClick(object? sender, RoutedEventArgs e)
     {
-        if (LanUrlSelector.SelectedItem is string url)
+        if (!string.IsNullOrEmpty(_activeWebUrl))
         {
-            await CopyTextAsync(url);
+            await CopyTextAsync(_activeWebUrl);
         }
     }
 
@@ -656,10 +881,19 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void OnQuitClick(object? sender, RoutedEventArgs e)
+    private void OnFooterUpdateClick(object? sender, RoutedEventArgs e)
     {
-        await _quitCallback();
+        var url = _updateChecker.LastResult?.DownloadUrl
+            ?? _updateChecker.LastResult?.ReleaseUrl
+            ?? AppMetadata.ReleasesUrl;
+        _webUiPresenter.Open(url);
     }
+
+    private void OnFooterDomainClick(object? sender, RoutedEventArgs e) =>
+        _webUiPresenter.Open(AppMetadata.WebsiteUrl);
+
+    private void OnAboutClick(object? sender, RoutedEventArgs e) =>
+        ShowAboutWindow();
 
     private async Task CopyTextAsync(string text)
     {

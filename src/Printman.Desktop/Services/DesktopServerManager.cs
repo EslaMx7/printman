@@ -226,7 +226,7 @@ public sealed class DesktopServerManager : IAsyncDisposable
             webPort == 5000 &&
             baseMessage.Contains("address already in use", StringComparison.OrdinalIgnoreCase))
         {
-            return $"{baseMessage} (On macOS, Control Center's AirPlay Receiver uses port 5000 by default — try setting Port to 5050 and retrying.)";
+            return $"{baseMessage} (On macOS, Control Center's AirPlay Receiver uses port 5000 by default - try setting Port to 5050 and retrying.)";
         }
         return baseMessage;
     }

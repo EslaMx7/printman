@@ -1,0 +1,213 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Printman.Desktop.Views.AboutWindow"
+        Title="About Printman"
+        Icon="avares://printman-desktop/Assets/app-icon.png"
+        Width="500"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+    <StackPanel Margin="20" Spacing="14">
+
+        <!-- Header Card -->
+        <Border Padding="16"
+                CornerRadius="10"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                <Image Grid.Column="0"
+                       Source="avares://printman-desktop/Assets/app-icon.png"
+                       Width="48"
+                       Height="48"
+                       VerticalAlignment="Top" />
+                <StackPanel Grid.Column="1" Spacing="5">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="Printman"
+                                   FontSize="20"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="VersionText"
+                                   FontSize="12.5"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="Turn any USB printer into a native AirPrint, Mopria, and Web printer. 100% local, zero cloud."
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Updates Card -->
+        <Border Padding="14,12"
+                CornerRadius="10"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBlock x:Name="UpdateStatusText"
+                           Grid.Column="0"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <Button x:Name="OpenUpdateButton"
+                        Grid.Column="1"
+                        Content="Download Update"
+                        Classes="accent"
+                        IsVisible="False"
+                        Padding="10,5"
+                        FontSize="12"
+                        Click="OnOpenUpdateClick" />
+                <Button x:Name="CheckUpdatesButton"
+                        Grid.Column="2"
+                        Content="Check for Updates"
+                        Padding="10,5"
+                        FontSize="12"
+                        Click="OnCheckUpdatesClick" />
+            </Grid>
+        </Border>
+
+        <!-- Credits & Links Card -->
+        <Border Padding="16"
+                CornerRadius="10"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                  ColumnDefinitions="130,*"
+                  RowSpacing="10"
+                  ColumnSpacing="12">
+
+                <!-- Author -->
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="Created by"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Eslam Hamouda (@EslaMx7)"
+                               FontSize="12.5"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                    <Button x:Name="AuthorLinkButton"
+                            Content="eslamx.com"
+                            Padding="4,2"
+                            FontSize="12"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                            Click="OnAuthorLinkClick" />
+                </StackPanel>
+
+                <!-- Official Website -->
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="Official Website"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button x:Name="WebsiteLinkButton"
+                            Content="printman.eslamx.com"
+                            Padding="4,2"
+                            FontSize="12.5"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                            Click="OnWebsiteLinkClick" />
+                    <Button x:Name="GuidesLinkButton"
+                            Content="Guides"
+                            Padding="8,3"
+                            FontSize="11.5"
+                            Click="OnGuidesLinkClick" />
+                </StackPanel>
+
+                <!-- GitHub -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="Source Code"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button x:Name="GitHubLinkButton"
+                            Content="github.com/EslaMx7/printman"
+                            Padding="4,2"
+                            FontSize="12.5"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                            Click="OnGitHubLinkClick" />
+                    <Button x:Name="ReleasesLinkButton"
+                            Content="Releases"
+                            Padding="8,3"
+                            FontSize="11.5"
+                            Click="OnReleasesLinkClick" />
+                </StackPanel>
+
+                <!-- Community Support -->
+                <TextBlock Grid.Row="3" Grid.Column="0"
+                           Text="Support Project"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <Button x:Name="SponsorLinkButton"
+                        Grid.Row="3" Grid.Column="1"
+                        Content="buymeacoffee.com/eslamx7"
+                        Padding="4,2"
+                        FontSize="12.5"
+                        HorizontalAlignment="Left"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                        Click="OnSponsorLinkClick" />
+
+                <!-- Support Email -->
+                <TextBlock Grid.Row="4" Grid.Column="0"
+                           Text="Support Email"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button x:Name="SupportEmailButton"
+                            Content="support@eslamx.com"
+                            Padding="4,2"
+                            FontSize="12.5"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                            Click="OnSupportEmailClick" />
+                    <Button x:Name="CopySupportEmailButton"
+                            Content="Copy"
+                            Padding="8,3"
+                            FontSize="11.5"
+                            Click="OnCopySupportEmailClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Bottom Copyright & Close -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Grid.Column="0"
+                       Text="© 2026 Eslam Hamouda. Released under the MIT License."
+                       FontSize="11.5"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+            <Button x:Name="CloseAboutButton"
+                    Grid.Column="1"
+                    Content="Close"
+                    IsCancel="True"
+                    Padding="16,6"
+                    Click="OnCloseClick" />
+        </Grid>
+
+    </StackPanel>
+</Window>

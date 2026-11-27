@@ -12,6 +12,7 @@
     <RootNamespace>Printman.Desktop</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(PrintmanWindows)' == 'true'">
@@ -35,10 +36,6 @@
     <PackageReference Include="Avalonia" Version="12.1.6" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
-    <!-- Avalonia.Controls.WebView lags core Avalonia (12.1.2 is the latest available); NuGet still
-         resolves it against core 12.1.6. The built-in WebView (Windows WebView2) is optional and
-         falls back to the system browser when unavailable. -->
-    <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -47,6 +44,10 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Printman.Desktop.Tests" />
   </ItemGroup>
 
 </Project>
