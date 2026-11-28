@@ -1,0 +1,35 @@
+<Project>
+
+  <Target Name="ResolvePrintmanDynamicVersion"
+          BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;PrepareForBuild"
+          Condition="'$(Version)' == '1.0.0'">
+    <Exec Command="git describe --tags --abbrev=0 --match &quot;v[0-9]*&quot;"
+          WorkingDirectory="$(MSBuildThisFileDirectory)"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          StandardErrorImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitLatestTag" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitTagExitCode" />
+    </Exec>
+
+    <PropertyGroup>
+      <_ResolvedSemVer Condition="'$(_GitTagExitCode)' == '0' and '$(_GitLatestTag)' != ''">$([System.Text.RegularExpressions.Regex]::Match('$(_GitLatestTag)', '\d+\.\d+\.\d+[^\s]*').Value)</_ResolvedSemVer>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(_ResolvedSemVer)' == '' and Exists('$(MSBuildThisFileDirectory)CHANGELOG.md')">
+      <_ChangelogSanitized>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)CHANGELOG.md').Replace("'", "").Replace(";", " "))</_ChangelogSanitized>
+      <_ResolvedSemVer>$([System.Text.RegularExpressions.Regex]::Match('$(_ChangelogSanitized)', '(?m)^## \[(\d+\.\d+\.\d+[^\]]*)\]').Groups[1].Value)</_ResolvedSemVer>
+    </PropertyGroup>
+
+    <PropertyGroup>
+      <_NumericVer Condition="'$(_ResolvedSemVer)' != ''">$([System.Text.RegularExpressions.Regex]::Match('$(_ResolvedSemVer)', '^\d+\.\d+\.\d+').Value)</_NumericVer>
+
+      <Version Condition="'$(_ResolvedSemVer)' != ''">$(_ResolvedSemVer)</Version>
+      <InformationalVersion Condition="'$(_ResolvedSemVer)' != ''">$(_ResolvedSemVer)</InformationalVersion>
+      <AssemblyVersion Condition="'$(_NumericVer)' != ''">$(_NumericVer).0</AssemblyVersion>
+      <FileVersion Condition="'$(_NumericVer)' != ''">$(_NumericVer).0</FileVersion>
+    </PropertyGroup>
+  </Target>
+
+</Project>

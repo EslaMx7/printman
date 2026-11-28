@@ -1,0 +1,439 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Printman.Desktop.Controls"
+        x:Class="Printman.Desktop.Views.MainWindow"
+        Title="Printman - Wireless Printer Sharing &amp; Web Print Server"
+        Icon="avares://printman-desktop/Assets/app-icon.png"
+        Width="1060"
+        Height="750"
+        MinWidth="900"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20" RowSpacing="14">
+
+        <!-- Header Bar: Status & Collected Server Lifecycle Actions -->
+        <Border Grid.Row="0"
+                Padding="14,12"
+                CornerRadius="10"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                <Image Grid.Column="0"
+                       Source="avares://printman-desktop/Assets/app-icon.png"
+                       Width="36"
+                       Height="36"
+                       VerticalAlignment="Center" />
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="Printman"
+                                   FontSize="17"
+                                   FontWeight="SemiBold" />
+                        <Border x:Name="StatusBadge"
+                                CornerRadius="12"
+                                Padding="10,2"
+                                VerticalAlignment="Center"
+                                Background="#475569">
+                            <TextBlock x:Name="StatusBadgeText"
+                                       Text="Stopped"
+                                       FontSize="11.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="White" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock x:Name="SubtitleText"
+                               Text="Share local printers over AirPrint / Mopria and Web UI."
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <Button x:Name="ApplyRestartButton"
+                            Content="Apply &amp; Restart"
+                            IsVisible="False"
+                            Padding="12,8"
+                            Click="OnApplyRestartClick" />
+                    <Button x:Name="OpenWebUiButton"
+                            Content="Open Web UI"
+                            Padding="12,8"
+                            IsEnabled="False"
+                            Click="OnOpenWebUiClick" />
+                    <Button x:Name="PrimaryActionButton"
+                            Content="Start Sharing"
+                            Classes="accent"
+                            Padding="16,8"
+                            FontWeight="SemiBold"
+                            Click="OnPrimaryActionClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Diagnostics / Notice Banner -->
+        <Border x:Name="AlertBanner"
+                Grid.Row="1"
+                IsVisible="False"
+                Padding="14,10"
+                CornerRadius="8"
+                BorderThickness="1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <TextBlock x:Name="AlertTitleText"
+                               FontWeight="SemiBold"
+                               FontSize="13" />
+                    <TextBlock x:Name="AlertBodyText"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <Button x:Name="AlertCopyButton"
+                            Content="Copy Fix"
+                            IsVisible="False"
+                            Click="OnAlertCopyClick" />
+                    <Button x:Name="AlertRetryButton"
+                            Content="Retry"
+                            IsVisible="False"
+                            Click="OnAlertRetryClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Two-Column Content -->
+        <Grid Grid.Row="2" ColumnDefinitions="0.88*,1.12*" ColumnSpacing="16">
+
+            <!-- Left Column: Printer Sharing & Server Options -->
+            <Border Grid.Column="0"
+                    Padding="16"
+                    CornerRadius="10"
+                    Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="1">
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
+
+                    <!-- Collected Printer Sharing Controls -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <CheckBox x:Name="EnableSharingCheckBox"
+                                  Grid.Column="0"
+                                  Content="Share Printers (AirPrint / Mopria)"
+                                  FontWeight="SemiBold"
+                                  VerticalAlignment="Center"
+                                  IsCheckedChanged="OnSettingChanged" />
+                        <CheckBox x:Name="ShareAllCheckBox"
+                                  Grid.Column="1"
+                                  Content="Share all"
+                                  VerticalAlignment="Center"
+                                  IsCheckedChanged="OnSettingChanged" />
+                        <Button x:Name="RefreshPrintersButton"
+                                Grid.Column="2"
+                                Content="Refresh"
+                                Padding="10,4"
+                                Click="OnRefreshPrintersClick" />
+                    </Grid>
+
+                    <!-- Printers Checklist -->
+                    <Border Grid.Row="1"
+                            Padding="10"
+                            CornerRadius="8"
+                            Background="{DynamicResource SystemControlPageBackgroundChromeLowBrush}"
+                            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                            BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="PrintersListPanel" Spacing="6" />
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Collected Web UI & Startup Options -->
+                    <Border Grid.Row="2"
+                            Padding="12,10"
+                            CornerRadius="8"
+                            Background="{DynamicResource SystemControlPageBackgroundChromeLowBrush}"
+                            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto,76" ColumnSpacing="8">
+                                <CheckBox x:Name="EnableWebUiCheckBox"
+                                          Grid.Column="0"
+                                          Content="Web UI Dashboard"
+                                          VerticalAlignment="Center"
+                                          IsCheckedChanged="OnSettingChanged" />
+                                <TextBlock Grid.Column="1"
+                                           Text="Port:"
+                                           VerticalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                                <TextBox x:Name="WebPortTextBox"
+                                         Grid.Column="2"
+                                         Text="5000"
+                                         TextChanged="OnTextSettingChanged" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,Auto,116" ColumnSpacing="8">
+                                <CheckBox x:Name="RequirePinCheckBox"
+                                          Grid.Column="0"
+                                          Content="Require PIN"
+                                          VerticalAlignment="Center"
+                                          IsCheckedChanged="OnSettingChanged" />
+                                <TextBlock Grid.Column="1"
+                                           Text="PIN:"
+                                           VerticalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                                <TextBox x:Name="CustomPinTextBox"
+                                         Grid.Column="2"
+                                         PlaceholderText="Auto 6-digit"
+                                         MaxLength="8"
+                                         TextChanged="OnTextSettingChanged" />
+                            </Grid>
+
+                            <CheckBox x:Name="AutoStartCheckBox"
+                                      Content="Start automatically when Printman opens"
+                                      IsCheckedChanged="OnSettingChanged" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Right Column: Connection Info, Shared Printers & Activity -->
+            <Grid Grid.Column="1" RowDefinitions="*,Auto" RowSpacing="12">
+
+                <Grid Grid.Row="0">
+                    <!-- Idle State Instructions -->
+                    <Border x:Name="IdleInfoPanel"
+                            Padding="16"
+                            CornerRadius="10"
+                            VerticalAlignment="Top"
+                            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                            BorderThickness="1">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Ready to Share"
+                                       FontSize="15"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="1. Select the printers to share on the left (or enable Web UI)."
+                                       TextWrapping="Wrap"
+                                       FontSize="12.5" />
+                            <TextBlock Text="2. Click Start Sharing to publish AirPrint / Mopria printers and the phone QR code."
+                                       TextWrapping="Wrap"
+                                       FontSize="12.5"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Running State: Compact Web/QR + Dedicated Scrollable Shared Printers -->
+                    <Grid x:Name="RunningContentGrid"
+                          IsVisible="False"
+                          RowDefinitions="Auto,*"
+                          RowSpacing="12">
+
+                        <!-- Compact Web UI + QR Code Card -->
+                        <Border x:Name="WebConnectionPanel"
+                                Grid.Row="0"
+                                IsVisible="False"
+                                Padding="12"
+                                CornerRadius="10"
+                                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                BorderThickness="1">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                <Border Grid.Column="0"
+                                        Padding="5"
+                                        CornerRadius="6"
+                                        Background="White"
+                                        VerticalAlignment="Center">
+                                    <controls:QrCodeControl x:Name="LanQrCode"
+                                                            Width="104"
+                                                            Height="104" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                                    <TextBlock Text="Mobile &amp; Browser Web UI"
+                                               FontWeight="SemiBold"
+                                               FontSize="13.5" />
+
+                                    <ComboBox x:Name="LanUrlSelector"
+                                              IsVisible="False"
+                                              HorizontalAlignment="Stretch"
+                                              SelectionChanged="OnLanUrlSelectionChanged" />
+
+                                    <Border x:Name="SingleLanUrlBorder"
+                                            IsVisible="False"
+                                            Padding="8,5"
+                                            CornerRadius="6"
+                                            Background="{DynamicResource SystemControlPageBackgroundChromeLowBrush}"
+                                            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                            BorderThickness="1">
+                                        <SelectableTextBlock x:Name="SingleLanUrlText"
+                                                             FontFamily="Consolas,Menlo,monospace"
+                                                             FontSize="12" />
+                                    </Border>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Copy URL"
+                                                Padding="10,4"
+                                                Click="OnCopyLanUrlClick" />
+                                        <Border x:Name="PinDisplayBadge"
+                                                Padding="8,4"
+                                                CornerRadius="6"
+                                                Background="{DynamicResource SystemControlPageBackgroundChromeLowBrush}"
+                                                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                                BorderThickness="1"
+                                                VerticalAlignment="Center">
+                                            <TextBlock x:Name="PinDisplayText"
+                                                       FontFamily="Consolas,Menlo,monospace"
+                                                       FontWeight="Bold"
+                                                       FontSize="12.5" />
+                                        </Border>
+                                        <Button x:Name="CopyPinButton"
+                                                Content="Copy PIN"
+                                                Padding="10,4"
+                                                Click="OnCopyPinClick" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Revamped Multi-Printer Shared Endpoints Card -->
+                        <Border x:Name="SharedPrintersPanel"
+                                Grid.Row="1"
+                                IsVisible="False"
+                                Padding="14"
+                                CornerRadius="10"
+                                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                BorderThickness="1">
+                            <Grid RowDefinitions="Auto,*" RowSpacing="10">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="Shared Printers"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center" />
+                                            <Border x:Name="SharedPrintersCountBadge"
+                                                    CornerRadius="10"
+                                                    Padding="8,2"
+                                                    Background="{DynamicResource SystemControlPageBackgroundChromeLowBrush}"
+                                                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                                    BorderThickness="1"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock x:Name="SharedPrintersCountText"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock x:Name="SharedPrintersHeaderText"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                                    </StackPanel>
+
+                                    <StackPanel x:Name="IppHostSelectorPanel"
+                                                Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                Spacing="6"
+                                                VerticalAlignment="Center"
+                                                IsVisible="False">
+                                        <TextBlock Text="Host:"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                                        <ComboBox x:Name="IppHostSelector"
+                                                  MinWidth="165"
+                                                  FontSize="11"
+                                                  SelectionChanged="OnIppHostSelectionChanged" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="SharedPrintersLinksPanel" Spacing="6" />
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- Live Activity Feed -->
+                <Border Grid.Row="1"
+                        Padding="12,10"
+                        CornerRadius="10"
+                        Height="104"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        BorderThickness="1">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="4">
+                        <TextBlock Grid.Row="0"
+                                   Text="Live Activity"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                        <Grid Grid.Row="1">
+                            <TextBlock x:Name="ActivityEmptyText"
+                                       Text="No print activity yet."
+                                       FontSize="11.5"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                            <ScrollViewer x:Name="ActivityScrollViewer" VerticalScrollBarVisibility="Auto">
+                                <StackPanel x:Name="ActivityLogPanel" Spacing="3" />
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- Footer Bar -->
+        <Border Grid.Row="3"
+                Padding="12,7"
+                CornerRadius="8"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <TextBlock x:Name="FooterStatusText"
+                           Grid.Column="0"
+                           Text="Stopped. Closing this window keeps Printman in the system tray."
+                           FontSize="11.5"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="12"
+                            VerticalAlignment="Center">
+                    <Button x:Name="FooterUpdateButton"
+                            IsVisible="False"
+                            Classes="accent"
+                            Padding="8,2"
+                            FontSize="11.5"
+                            Click="OnFooterUpdateClick" />
+                    <TextBlock Text="© 2026 Eslam Hamouda"
+                               FontSize="11.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                    <Button x:Name="FooterDomainLinkButton"
+                            Content="printman.eslamx.com"
+                            Padding="4,2"
+                            FontSize="11.5"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Foreground="{DynamicResource SystemControlHighlightAccentBrush}"
+                            Click="OnFooterDomainClick" />
+                    <Button x:Name="FooterAboutButton"
+                            Content="About"
+                            Padding="8,2"
+                            FontSize="11.5"
+                            Click="OnAboutClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>

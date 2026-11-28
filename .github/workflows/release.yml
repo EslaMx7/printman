@@ -36,7 +36,10 @@ jobs:
         run: dotnet restore Printman.slnx
 
       - name: Test with coverage
-        run: dotnet test Printman.slnx --configuration Release --no-restore --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+        run: dotnet test --project tests/Printman.Tests/Printman.Tests.csproj --configuration Release --no-restore --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+
+      - name: Test Desktop UI
+        run: dotnet test --project tests/Printman.Desktop.Tests/Printman.Desktop.Tests.csproj --configuration Release --no-restore
 
       - name: Enforce coverage ratchet
         shell: pwsh
@@ -152,9 +155,15 @@ jobs:
             -p:PublishSingleFile=true `
             -p:Version=$ver `
             -o ./dist/standalone-x64
+          dotnet publish src/Printman.Desktop/Printman.Desktop.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=$ver `
+            -o ./dist/standalone-x64-desktop
 
-          # Direct standalone executable
+          # Direct standalone executables
           Copy-Item "./dist/standalone-x64/printman.exe" -Destination "./printman-v$ver-win-x64.exe"
+          Copy-Item "./dist/standalone-x64-desktop/printman-desktop.exe" -Destination "./printman-desktop-v$ver-win-x64.exe"
 
           Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone-x64"
           Compress-Archive -Path "./dist/standalone-x64/*" -DestinationPath "./printman-v$ver-win-x64.zip" -Force
@@ -167,9 +176,15 @@ jobs:
             -p:PublishSingleFile=true `
             -p:Version=$ver `
             -o ./dist/standalone-arm64
+          dotnet publish src/Printman.Desktop/Printman.Desktop.csproj -c Release -r win-arm64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=$ver `
+            -o ./dist/standalone-arm64-desktop
 
-          # Direct standalone executable
+          # Direct standalone executables
           Copy-Item "./dist/standalone-arm64/printman.exe" -Destination "./printman-v$ver-win-arm64.exe"
+          Copy-Item "./dist/standalone-arm64-desktop/printman-desktop.exe" -Destination "./printman-desktop-v$ver-win-arm64.exe"
 
           Copy-Item -Path "README.md", "LICENSE" -Destination "./dist/standalone-arm64"
           Compress-Archive -Path "./dist/standalone-arm64/*" -DestinationPath "./printman-v$ver-win-arm64.zip" -Force
@@ -179,6 +194,9 @@ jobs:
         run: |
           $ver = "${{ steps.semver.outputs.VERSION }}"
           dotnet publish src/Printman/Printman.csproj -c Release -r win-x64 --self-contained false `
+            -p:Version=$ver `
+            -o ./dist/portable
+          dotnet publish src/Printman.Desktop/Printman.Desktop.csproj -c Release -r win-x64 --self-contained false `
             -p:Version=$ver `
             -o ./dist/portable
 
@@ -205,22 +223,23 @@ jobs:
 
           ### Download Options
 
-          #### Direct Executables & Disk Images
-          - **``printman-v$ver-win-x64.exe``** ⭐: Standalone 64-bit Windows executable (no extraction needed).
-          - **``printman-v$ver-win-arm64.exe``**: Standalone ARM64 Windows executable (Snapdragon X Elite / Copilot+ PCs).
-          - **``printman-v$ver-osx-arm64.dmg``** 🍏: Mountable Apple Silicon macOS disk image.
-          - **``printman-v$ver-osx-x64.dmg``**: Mountable Intel macOS disk image.
-          - **``printman-v$ver-linux-x64``** 🐧: Standalone Linux x86_64 binary.
-          - **``printman-v$ver-linux-arm64``** (Raspberry Pi 64-bit) / **``linux-arm``** (Raspberry Pi 32-bit): Standalone ARM Linux binary.
-          - **``printman-v$ver-osx-arm64``** / **``osx-x64``**: Standalone macOS binary.
+          #### Desktop App (Recommended for Windows, macOS & Linux Desktop)
+          - **``printman-desktop-v$ver-win-x64.exe``** ⭐: Standalone 64-bit Windows desktop tray app.
+          - **``printman-desktop-v$ver-win-arm64.exe``**: Standalone ARM64 Windows desktop tray app.
+          - **``printman-v$ver-osx-arm64.dmg``** 🍏: Mountable Apple Silicon macOS disk image (``Printman.app`` + CLI).
+          - **``printman-v$ver-osx-x64.dmg``**: Mountable Intel macOS disk image (``Printman.app`` + CLI).
+          - **``printman-desktop-v$ver-linux-x64``** 🐧: Standalone Linux x86_64 desktop tray app.
+          - **``printman-desktop-v$ver-linux-arm64``**: Standalone ARM64 Linux desktop tray app.
 
-          #### Standalone Compressed Archives (ZIP / tar.gz)
-          - Windows: **``printman-v$ver-win-x64.zip``**, **``printman-v$ver-win-arm64.zip``**
-          - Linux / Raspberry Pi: **``printman-v$ver-linux-x64.tar.gz``**, **``linux-arm64.tar.gz``**, **``linux-arm.tar.gz``**
-          - macOS: **``printman-v$ver-osx-arm64.tar.gz``**, **``osx-x64.tar.gz``**
+          #### CLI, Servers & Raspberry Pi
+          - **``printman-v$ver-win-x64.exe``** / **``printman-v$ver-win-x64.zip``**: Standalone 64-bit Windows CLI.
+          - **``printman-v$ver-win-arm64.exe``** / **``printman-v$ver-win-arm64.zip``**: Standalone ARM64 Windows CLI.
+          - **``printman-v$ver-linux-x64``** / **``printman-v$ver-linux-x64.tar.gz``**: Standalone Linux x86_64 CLI.
+          - **``printman-v$ver-linux-arm64``** (Raspberry Pi 64-bit) / **``linux-arm``** (Raspberry Pi 32-bit) + ``.tar.gz`` archives.
+          - **``printman-v$ver-osx-arm64``** / **``osx-x64``** + ``.tar.gz`` archives: Standalone macOS CLI binaries.
 
           #### Portable (Framework-Dependent)
-          - Windows: **``printman-v$ver-win-x64-framework-dependent.zip``** (requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download))
+          - Windows: **``printman-v$ver-win-x64-framework-dependent.zip``** (includes CLI + Desktop sharing runtime DLLs; requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download))
 
           #### Verification
           - **``checksums.txt``**: SHA-256 hashes of all release packages and binaries.
@@ -240,20 +259,24 @@ jobs:
               Write-Host "Release $tag already exists. Updating notes and uploading Windows assets with --clobber..."
               gh release edit $tag --title "Printman $tag" --notes $releaseNotes
               gh release upload $tag `
-                "./printman-v$ver-win-x64.exe#printman-v$ver-win-x64.exe (Standalone Executable)" `
-                "./printman-v$ver-win-arm64.exe#printman-v$ver-win-arm64.exe (Standalone ARM64 Executable)" `
-                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 ZIP - Recommended)" `
-                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64 ZIP)" `
-                "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
+                "./printman-desktop-v$ver-win-x64.exe#printman-desktop-v$ver-win-x64.exe (Desktop Tray App - Recommended)" `
+                "./printman-desktop-v$ver-win-arm64.exe#printman-desktop-v$ver-win-arm64.exe (ARM64 Desktop Tray App)" `
+                "./printman-v$ver-win-x64.exe#printman-v$ver-win-x64.exe (Standalone CLI Executable)" `
+                "./printman-v$ver-win-arm64.exe#printman-v$ver-win-arm64.exe (Standalone ARM64 CLI Executable)" `
+                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (CLI x64 ZIP)" `
+                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (CLI ARM64 ZIP)" `
+                "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent CLI + Desktop)" `
                 --clobber
           } else {
               Write-Host "Creating draft release $tag..."
               gh release create $tag `
-                "./printman-v$ver-win-x64.exe#printman-v$ver-win-x64.exe (Standalone Executable)" `
-                "./printman-v$ver-win-arm64.exe#printman-v$ver-win-arm64.exe (Standalone ARM64 Executable)" `
-                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (Standalone x64 ZIP - Recommended)" `
-                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (Standalone ARM64 ZIP)" `
-                "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent)" `
+                "./printman-desktop-v$ver-win-x64.exe#printman-desktop-v$ver-win-x64.exe (Desktop Tray App - Recommended)" `
+                "./printman-desktop-v$ver-win-arm64.exe#printman-desktop-v$ver-win-arm64.exe (ARM64 Desktop Tray App)" `
+                "./printman-v$ver-win-x64.exe#printman-v$ver-win-x64.exe (Standalone CLI Executable)" `
+                "./printman-v$ver-win-arm64.exe#printman-v$ver-win-arm64.exe (Standalone ARM64 CLI Executable)" `
+                "./printman-v$ver-win-x64.zip#printman-v$ver-win-x64.zip (CLI x64 ZIP)" `
+                "./printman-v$ver-win-arm64.zip#printman-v$ver-win-arm64.zip (CLI ARM64 ZIP)" `
+                "./printman-v$ver-win-x64-framework-dependent.zip#printman-v$ver-win-x64-framework-dependent.zip (Framework-Dependent CLI + Desktop)" `
                 --title "Printman $tag" `
                 --notes $releaseNotes `
                 --draft
@@ -297,21 +320,51 @@ jobs:
             rm -f "$out"/*.pdb
             chmod +x "$out/printman"
 
-            # 1. Direct standalone binary
+            # 1. Direct standalone CLI binary
             cp "$out/printman" "printman-v$VERSION-$rid"
             gh release upload "$TAG" "printman-v$VERSION-$rid" --clobber
 
-            # 2. If macOS, also build mountable .dmg
-            if [ "${{ matrix.is_mac }}" = "true" ]; then
-              dmg_dir="./dmg_$rid"
-              mkdir -p "$dmg_dir"
-              cp "$out/printman" README.md LICENSE "$dmg_dir/"
-              hdiutil create -volname "Printman" -srcfolder "$dmg_dir" -ov -format UDZO "printman-v$VERSION-$rid.dmg"
-              gh release upload "$TAG" "printman-v$VERSION-$rid.dmg" --clobber
-              rm -rf "$dmg_dir"
+            # 2. Build Printman.Desktop for desktop RIDs (skip 32-bit linux-arm)
+            if [ "$rid" != "linux-arm" ]; then
+              out_desktop="./dist/$rid-desktop"
+              if [ "${{ matrix.is_mac }}" = "true" ]; then
+                # Do NOT set IncludeNativeLibrariesForSelfExtract on macOS (causes CoreCLR failure)
+                dotnet publish src/Printman.Desktop/Printman.Desktop.csproj -c Release -r "$rid" --self-contained true \
+                  -p:PublishSingleFile=true -p:Version="$VERSION" -o "$out_desktop"
+                rm -f "$out_desktop"/*.pdb
+                chmod +x "$out_desktop/printman-desktop"
+
+                app_bundle="./dist/$rid-app/Printman.app"
+                mkdir -p "$app_bundle/Contents/MacOS" "$app_bundle/Contents/Resources"
+                cp -R "$out_desktop"/. "$app_bundle/Contents/MacOS/"
+                rm -f "$app_bundle/Contents/MacOS/"*.runtimeconfig.json
+                sed "s/<string>1.0.0<\/string>/<string>$VERSION<\/string>/g" \
+                  src/Printman.Desktop/Assets/Info.plist > "$app_bundle/Contents/Info.plist"
+                cp src/Printman.Desktop/Assets/app.icns "$app_bundle/Contents/Resources/app.icns"
+
+                # Sign nested native libraries first, then the main executable, then the .app bundle
+                find "$app_bundle/Contents/MacOS" -type f -name "*.dylib" -exec codesign --force --sign - {} \;
+                codesign --force --sign - "$app_bundle/Contents/MacOS/printman-desktop"
+                codesign --force --sign - "$app_bundle"
+
+                dmg_dir="./dmg_$rid"
+                mkdir -p "$dmg_dir"
+                cp -R "$app_bundle" "$dmg_dir/"
+                cp "$out/printman" README.md LICENSE "$dmg_dir/"
+                hdiutil create -volname "Printman" -srcfolder "$dmg_dir" -ov -format UDZO "printman-v$VERSION-$rid.dmg"
+                gh release upload "$TAG" "printman-v$VERSION-$rid.dmg" --clobber
+                rm -rf "$dmg_dir"
+              else
+                dotnet publish src/Printman.Desktop/Printman.Desktop.csproj -c Release -r "$rid" --self-contained true \
+                  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Version="$VERSION" -o "$out_desktop"
+                rm -f "$out_desktop"/*.pdb
+                chmod +x "$out_desktop/printman-desktop"
+                cp "$out_desktop/printman-desktop" "printman-desktop-v$VERSION-$rid"
+                gh release upload "$TAG" "printman-desktop-v$VERSION-$rid" --clobber
+              fi
             fi
 
-            # 3. Compressed archive
+            # 3. Lean CLI compressed archive
             cp README.md LICENSE "$out/"
             tar -czf "printman-v$VERSION-$rid.tar.gz" -C "$out" .
             gh release upload "$TAG" "printman-v$VERSION-$rid.tar.gz" --clobber

@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Printman/Printman.csproj" />
+    <Project Path="src/Printman.Desktop/Printman.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Printman.Tests/Printman.Tests.csproj" />
+    <Project Path="tests/Printman.Desktop.Tests/Printman.Desktop.Tests.csproj" />
   </Folder>
 </Solution>

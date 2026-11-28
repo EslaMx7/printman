@@ -12,7 +12,8 @@ This document provides context, architectural constraints, and operational instr
   - **Windows** (`win-*` RID, or a plain build on Windows): `net10.0-windows` with `TargetPlatformVersion 10.0.19041.0`; GDI+ printing, WinRT `Windows.Data.Pdf`, `winspool.drv`.
   - **Linux / macOS** (`linux-x64`, `linux-arm64`, `linux-arm`, `osx-x64`, `osx-arm64`, or a plain build there): `net10.0`; documents are handed unchanged to CUPS over IPP (Printman's own codec, cupsd domain socket with PeerCred auth, or `localhost:631` / `CUPS_SERVER`).
 - **Primary Binary:** `printman.exe` on Windows, `printman` on Linux / macOS (built from `src/Printman/`)
-- **Solution:** `Printman.slnx` — `src/Printman` (shipping app) + `tests/Printman.Tests` (unit tests, MSTest 4 + Microsoft.Testing.Platform)
+- **Desktop GUI Binary:** `printman-desktop.exe` / `printman-desktop` (built from `src/Printman.Desktop/`, Avalonia cross-platform tray & setup GUI wrapping `Printman`)
+- **Solution:** `Printman.slnx` — `src/Printman` (CLI/server), `src/Printman.Desktop` (desktop GUI), `tests/Printman.Tests` (unit tests, MSTest 4 + Microsoft.Testing.Platform), and `tests/Printman.Desktop.Tests` (headless Avalonia UI tests)
 - **Current State:** CLI commands, interactive launcher menu, PDF/Image/Text rendering, printer discovery and fuzzy matching, plus embedded mobile LAN web server (`serve`) and network printer sharing (`share`).
 
 ---
@@ -23,7 +24,7 @@ This document provides context, architectural constraints, and operational instr
 1. **Zero Third-Party NuGet Dependencies (shipped code):**
    - Under no circumstances should third-party NuGet packages (e.g., iTextSharp, PdfSharp, CommandLineParser, Spectre.Console) be added to the shipping project (`src/Printman`).
    - All functionality must rely strictly on standard .NET BCL, Microsoft framework references (`Microsoft.AspNetCore.App`, `Microsoft.WindowsDesktop.App`), native Windows SDK / WinRT (`Windows.Data.Pdf`) on Windows, and the system CUPS service and its command-line tools (`cupsfilter`; optionally `pdfinfo` / `qpdf`) on Linux / macOS.
-   - **Test-only exemption:** `tests/Printman.Tests` may reference **Microsoft-owned** test packages (MSTest 4 via `MSTest.Sdk`, Microsoft.Testing.Platform). Test dependencies must never flow into `printman.exe` or the published output.
+   - **Desktop GUI & Test exceptions:** `src/Printman.Desktop` uses Avalonia (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`) for the desktop tray/window shell; `src/Printman` itself remains strictly zero-NuGet-dependency. `tests/Printman.Tests` may reference **Microsoft-owned** test packages (MSTest 4 via `MSTest.Sdk`, Microsoft.Testing.Platform) and `tests/Printman.Desktop.Tests` adds `Avalonia.Headless`. Test dependencies must never flow into `printman.exe` or the published output.
 2. **Platform Code Placement:**
    - Windows-only code lives in `*.Windows.cs` files or `Services/Windows/`; Linux / macOS-only code in `*.Unix.cs` files. The csproj removes the other platform's files, so no `#if` is needed except in `Program` (`#if WINDOWS` around service registration and the CUPS readiness check).
    - `Services/Cups/` is portable BCL code (IPP over HTTP, process runner) and compiles on every platform so the unit tests cover it with an in-memory cupsd (`tests/Printman.Tests/Fakes/FakeCupsServer.cs`); it is only registered off Windows.

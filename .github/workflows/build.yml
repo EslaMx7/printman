@@ -30,7 +30,10 @@ jobs:
         run: dotnet build Printman.slnx --no-restore --configuration Release
 
       - name: Test with coverage
-        run: dotnet test Printman.slnx --no-build --configuration Release --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+        run: dotnet test --project tests/Printman.Tests/Printman.Tests.csproj --no-build --configuration Release --coverage --coverage-output-format cobertura --coverage-settings coverage.runsettings
+
+      - name: Test Desktop UI
+        run: dotnet test --project tests/Printman.Desktop.Tests/Printman.Desktop.Tests.csproj --no-build --configuration Release
 
       - name: Enforce coverage ratchet
         id: coverage
@@ -87,13 +90,21 @@ jobs:
             TestResults/coverage-summary.md
 
       - name: Publish
-        run: dotnet publish src/Printman/Printman.csproj --configuration Release -r win-x64 --self-contained false -o ./publish
+        run: |
+          dotnet publish src/Printman/Printman.csproj --configuration Release -r win-x64 --self-contained false -o ./publish
+          dotnet publish src/Printman.Desktop/Printman.Desktop.csproj --configuration Release -r win-x64 --self-contained false -o ./publish-desktop
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: publish
           path: ./publish
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-desktop
+          path: ./publish-desktop
 
   build-linux:
     runs-on: ubuntu-latest
@@ -107,10 +118,12 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Build (Raspberry Pi / ARM)
+      - name: Build (Raspberry Pi / ARM + Desktop)
         run: |
           dotnet build src/Printman/Printman.csproj --configuration Release -r linux-arm64
           dotnet build src/Printman/Printman.csproj --configuration Release -r linux-arm
+          dotnet build src/Printman.Desktop/Printman.Desktop.csproj --configuration Release -r linux-x64
+          dotnet build src/Printman.Desktop/Printman.Desktop.csproj --configuration Release -r linux-arm64
 
       - name: Publish (x64)
         run: dotnet publish src/Printman/Printman.csproj --configuration Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
@@ -189,6 +202,10 @@ jobs:
         run: |
           dotnet build src/Printman/Printman.csproj --configuration Release -r osx-arm64
           dotnet build src/Printman/Printman.csproj --configuration Release -r osx-x64
+          dotnet build src/Printman.Desktop/Printman.Desktop.csproj --configuration Release -r osx-arm64
+          dotnet build src/Printman.Desktop/Printman.Desktop.csproj --configuration Release -r osx-x64
 
       - name: Smoke test
-        run: dotnet run --project src/Printman --configuration Release -r osx-arm64 -- list
+        run: |
+          dotnet run --project src/Printman --configuration Release -r osx-arm64 -- list
+          dotnet test --project tests/Printman.Desktop.Tests/Printman.Desktop.Tests.csproj --configuration Release
